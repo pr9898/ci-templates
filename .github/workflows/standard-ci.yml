@@ -146,29 +146,45 @@ jobs:
           SEC="${{ needs.security.result || 'skipped' }}"
           DEP="${{ needs.dependency.result || 'skipped' }}"
 
+          # result 转 emoji + 中文
+          result_icon() {
+            case "$1" in
+              success) echo "✅ 成功" ;;
+              failure) echo "❌ 失败" ;;
+              skipped) echo "⊘ 跳过" ;;
+              *)       echo "❓ $1" ;;
+            esac
+          }
+
           FAIL=0
           [ "$LINT" = "failure" ] && FAIL=1
           [ "$SEC" = "failure" ] && FAIL=1
           [ "$DEP" = "failure" ] && FAIL=1
 
+          LINT_ICON=$(result_icon "$LINT")
+          SEC_ICON=$(result_icon "$SEC")
+          DEP_ICON=$(result_icon "$DEP")
+
+          if [ "$FAIL" = "1" ]; then
+            echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "title=✅ CI 完成" >> "$GITHUB_OUTPUT"
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
+          # 多行 output 用 DELIMITER 语法
           {
-            if [ "$FAIL" = "1" ]; then
-              echo "title=❌ CI 失败"
-              echo "status=failure"
-            else
-              echo "title=✅ CI 完成"
-              echo "status=success"
-            fi
-            echo "lint=$LINT"
-            echo "security=$SEC"
-            echo "dependency=$DEP"
+            echo "extra<<EOF"
+            echo "> 📋 检查结果"
+            echo "> 🔍 静态分析　${LINT_ICON}"
+            echo "> 🛡️ 安全扫描　${SEC_ICON}"
+            echo "> 📦 依赖审计　${DEP_ICON}"
+            echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/notify-wecom
         with:
           title: ${{ steps.status.outputs.title }}
           status: ${{ steps.status.outputs.status }}
-          extra: |
-            > **lint**: ${{ steps.status.outputs.lint }}
-            > **security**: ${{ steps.status.outputs.security }}
-            > **dependency**: ${{ steps.status.outputs.dependency }}
+          extra: ${{ steps.status.outputs.extra }}

@@ -36,17 +36,38 @@ runs:
         RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
         EVENT="$GITHUB_EVENT_NAME"
 
-        # Build markdown content
+        # 状态图标映射
+        case "$STATUS" in
+          success) STATUS_ICON="✅" ;;
+          failure) STATUS_ICON="❌" ;;
+          started) STATUS_ICON="🚀" ;;
+          *)       STATUS_ICON="ℹ️" ;;
+        esac
+
+        # 事件名中文化
+        case "$EVENT" in
+          pull_request)      EVENT_CN="Pull Request" ;;
+          push)              EVENT_CN="Push" ;;
+          workflow_dispatch) EVENT_CN="手动触发" ;;
+          schedule)          EVENT_CN="定时任务" ;;
+          *)                 EVENT_CN="$EVENT" ;;
+        esac
+
+        # 构造整齐的 markdown 消息
+        # 每行用全角空格对齐字段，引用块用 > 保持卡片样式
         CONTENT="${TITLE}"
-        CONTENT="${CONTENT}\n> **仓库**: \`${REPO}\`"
-        CONTENT="${CONTENT}\n> **分支**: \`${BRANCH}\`"
-        CONTENT="${CONTENT}\n> **触发者**: ${ACTOR}"
-        CONTENT="${CONTENT}\n> **事件**: ${EVENT}"
-        CONTENT="${CONTENT}\n> **状态**: ${STATUS}"
+        CONTENT="${CONTENT}\n> "
+        CONTENT="${CONTENT}\n> 📦 仓库　　<font color=\"info\">${REPO}</font>"
+        CONTENT="${CONTENT}\n> 🌿 分支　　<font color=\"info\">${BRANCH}</font>"
+        CONTENT="${CONTENT}\n> 👤 触发者　${ACTOR}"
+        CONTENT="${CONTENT}\n> ⚙️ 事件　　${EVENT_CN}"
+        CONTENT="${CONTENT}\n> ${STATUS_ICON} 状态　　<font color=\"$( [ "$STATUS" = "failure" ] && echo "warning" || echo "info" )\">${STATUS}</font>"
         if [ -n "$EXTRA" ]; then
+          CONTENT="${CONTENT}\n> "
           CONTENT="${CONTENT}\n${EXTRA}"
         fi
-        CONTENT="${CONTENT}\n> [查看 CI 详情](${RUN_URL})"
+        CONTENT="${CONTENT}\n> "
+        CONTENT="${CONTENT}\n> 👉 [查看 CI 详情](${RUN_URL})"
 
         # Build JSON payload with jq to avoid escaping issues
         PAYLOAD=$(jq -nc --arg content "$CONTENT" '{msgtype:"markdown",markdown:{content:$content}}')

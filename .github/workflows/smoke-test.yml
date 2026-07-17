@@ -1,13 +1,14 @@
 name: Smoke Test
 
-# 仓库自身的冒烟测试：调用 standard-ci.yml 验证企业微信通知等核心功能。
-# 模板仓库没有真实 TS/Python 代码，所以关闭实际检查，只验证通知链路。
+# 仓库自身的冒烟测试：调用 standard-ci.yml 验证企业微信通知 + 安全扫描。
+# 模板仓库没有 TS/Python 业务代码，所以只开 B 类安全扫描（gitleaks/trivy 不需要业务代码），
+# 关闭 A 类（需 tsconfig）和 C 类（需 lockfile）。
 # 业务项目不需要此工作流。
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, "feature/**", "fix/**"]
 
 jobs:
   notify-smoke-test:
@@ -16,7 +17,7 @@ jobs:
     with:
       project-type: "bun"
       run-static-analysis: false
-      run-security-scan: false
+      run-security-scan: true
       run-dependency-audit: false
       wecom-notify: true
     secrets:
