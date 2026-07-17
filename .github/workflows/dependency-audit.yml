@@ -1,0 +1,86 @@
+name: Dependency Audit
+
+# C 类：依赖审计（dep-audit / py-dep-audit / lockfile-freshness）
+# 被 standard-ci.yml 调用，不直接被业务项目调用。
+
+on:
+  workflow_call:
+    inputs:
+      project-type:
+        type: string
+        required: true
+      run-osv-scanner:
+        type: boolean
+        default: false
+        description: 'Run OSV scanner (slow, recommended for scheduled runs)'
+      fail-on-severity:
+        type: string
+        default: high
+        description: 'none / low / medium / high / critical'
+      bun-version:
+        type: string
+        default: latest
+      python-version:
+        type: string
+        default: '3.12'
+      working-directory:
+        type: string
+        default: .
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: inputs.project-type == 'bun'
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Python
+        if: inputs.project-type == 'python'
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ inputs.python-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Lockfile freshness (Bun)
+        if: inputs.project-type == 'bun'
+        run: bun install --frozen-lockfile
+
+      - name: Lockfile freshness (Python)
+        if: inputs.project-type == 'python'
+        run: uv sync --frozen
+
+      - name: Bun audit
+        if: inputs.project-type == 'bun'
+        run: |
+          if [ "${{ inputs.fail-on-severity }}" = "none" ]; then
+            bun audit --production || echo "::warning::bun audit found vulnerabilities (fail-on-severity=none)"
+          else
+            bun audit --production
+          fi
+
+      - name: pip-audit
+        if: inputs.project-type == 'python'
+        run: |
+          if [ "${{ inputs.fail-on-severity }}" = "none" ]; then
+            uv run pip-audit || echo "::warning::pip-audit found vulnerabilities (fail-on-severity=none)"
+          else
+            uv run pip-audit
+          fi
+
+      - name: OSV Scanner
+        if: inputs.run-osv-scanner == true
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            -r
+            ./

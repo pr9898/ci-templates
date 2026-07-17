@@ -1,0 +1,30 @@
+# Bun 项目 CI 样板
+#
+# 接入步骤：
+# 1. 复制本文件到你的仓库 .github/workflows/ci.yml
+# 2. （可选）按需调整 with 下的参数
+# 3. 在仓库 Settings → Secrets → Actions 配置 secrets（全部可选，缺失自动跳过）
+# 4. 提交 PR，观察 CI 结果与企业微信通知
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    with:
+      project-type: 'bun'
+      run-static-analysis: true
+      run-security-scan: true
+      run-dependency-audit: true
+      run-extended-lint: false
+      run-knip: true
+      fail-on-severity: 'high'
+      wecom-notify: true
+    secrets:
+      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}

@@ -1,0 +1,174 @@
+name: Standard CI
+
+# 对外唯一入口：业务项目通过 uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1 调用。
+# 内部编排 notify-start → [lint / security / dependency] → notify-end。
+
+on:
+  workflow_call:
+    inputs:
+      project-type:
+        type: string
+        default: bun
+        description: 'bun or python (v1 supported types)'
+      run-static-analysis:
+        type: boolean
+        default: true
+        description: 'Run A-class checks (type-check / lint / format)'
+      run-security-scan:
+        type: boolean
+        default: true
+        description: 'Run B-class checks (semgrep / gitleaks / trivy / knip / checkov / conftest)'
+      run-dependency-audit:
+        type: boolean
+        default: true
+        description: 'Run C-class checks (dep-audit / lockfile-freshness)'
+      run-extended-lint:
+        type: boolean
+        default: false
+        description: 'Run hadolint / shellcheck / stylelint / sqlfluff'
+      run-knip:
+        type: boolean
+        default: true
+        description: 'Run knip dead-code detection (bun only)'
+      run-osv-scanner:
+        type: boolean
+        default: false
+        description: 'Run OSV scanner (slow, for scheduled runs)'
+      fail-on-severity:
+        type: string
+        default: high
+        description: 'none / low / medium / high / critical'
+      bun-version:
+        type: string
+        default: latest
+      python-version:
+        type: string
+        default: '3.12'
+      working-directory:
+        type: string
+        default: .
+      wecom-notify:
+        type: boolean
+        default: true
+        description: 'Send WeCom notification at CI start and end'
+      debug:
+        type: boolean
+        default: false
+        description: 'Enable debug output'
+    secrets:
+      WECOM_BOT_KEY:
+        required: false
+      SEMGREP_APP_TOKEN:
+        required: false
+      GITLEAKS_LICENSE:
+        required: false
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+
+jobs:
+  notify-start:
+    name: Notify CI Start (WeCom)
+    if: ${{ inputs.wecom-notify == true }}
+    runs-on: ubuntu-latest
+    env:
+      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Debug context
+        if: ${{ inputs.debug == true }}
+        env:
+          INPUTS: ${{ toJSON(inputs) }}
+        run: echo "$INPUTS"
+      - uses: ./.github/actions/notify-wecom
+        with:
+          title: '🚀 CI 开始'
+          status: started
+          extra: |
+            > **项目类型**: ${{ inputs.project-type }}
+            > **静态分析**: ${{ inputs.run-static-analysis }}
+            > **安全扫描**: ${{ inputs.run-security-scan }}
+            > **依赖审计**: ${{ inputs.run-dependency-audit }}
+
+  lint:
+    name: Lint & Format
+    if: ${{ inputs.run-static-analysis == true }}
+    uses: ./.github/workflows/lint-checks.yml
+    with:
+      project-type: ${{ inputs.project-type }}
+      run-extended-lint: ${{ inputs.run-extended-lint }}
+      bun-version: ${{ inputs.bun-version }}
+      python-version: ${{ inputs.python-version }}
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit
+
+  security:
+    name: Security Scan
+    if: ${{ inputs.run-security-scan == true }}
+    uses: ./.github/workflows/security-scans.yml
+    with:
+      project-type: ${{ inputs.project-type }}
+      run-knip: ${{ inputs.run-knip }}
+      fail-on-severity: ${{ inputs.fail-on-severity }}
+      bun-version: ${{ inputs.bun-version }}
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit
+
+  dependency:
+    name: Dependency Audit
+    if: ${{ inputs.run-dependency-audit == true }}
+    uses: ./.github/workflows/dependency-audit.yml
+    with:
+      project-type: ${{ inputs.project-type }}
+      run-osv-scanner: ${{ inputs.run-osv-scanner }}
+      fail-on-severity: ${{ inputs.fail-on-severity }}
+      bun-version: ${{ inputs.bun-version }}
+      python-version: ${{ inputs.python-version }}
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit
+
+  notify-end:
+    name: Notify CI End (WeCom)
+    needs: [lint, security, dependency]
+    if: ${{ always() && inputs.wecom-notify == true }}
+    runs-on: ubuntu-latest
+    env:
+      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute overall status
+        id: status
+        shell: bash
+        run: |
+          LINT="${{ needs.lint.result || 'skipped' }}"
+          SEC="${{ needs.security.result || 'skipped' }}"
+          DEP="${{ needs.dependency.result || 'skipped' }}"
+
+          FAIL=0
+          [ "$LINT" = "failure" ] && FAIL=1
+          [ "$SEC" = "failure" ] && FAIL=1
+          [ "$DEP" = "failure" ] && FAIL=1
+
+          {
+            if [ "$FAIL" = "1" ]; then
+              echo "title=❌ CI 失败"
+              echo "status=failure"
+            else
+              echo "title=✅ CI 完成"
+              echo "status=success"
+            fi
+            echo "lint=$LINT"
+            echo "security=$SEC"
+            echo "dependency=$DEP"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/notify-wecom
+        with:
+          title: ${{ steps.status.outputs.title }}
+          status: ${{ steps.status.outputs.status }}
+          extra: |
+            > **lint**: ${{ steps.status.outputs.lint }}
+            > **security**: ${{ steps.status.outputs.security }}
+            > **dependency**: ${{ steps.status.outputs.dependency }}

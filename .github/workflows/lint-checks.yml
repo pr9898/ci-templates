@@ -1,0 +1,123 @@
+name: Lint Checks
+
+# A 类：静态分析与格式化（type-check / lint / extended-lint / format）
+# 被 standard-ci.yml 调用，不直接被业务项目调用。
+
+on:
+  workflow_call:
+    inputs:
+      project-type:
+        type: string
+        required: true
+        description: 'Project type: bun or python'
+      run-extended-lint:
+        type: boolean
+        default: false
+        description: 'Run hadolint / shellcheck / stylelint / sqlfluff'
+      bun-version:
+        type: string
+        default: latest
+      python-version:
+        type: string
+        default: '3.12'
+      working-directory:
+        type: string
+        default: .
+
+jobs:
+  static-analysis:
+    name: Static Analysis & Format
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: inputs.project-type == 'bun'
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Python
+        if: inputs.project-type == 'python'
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ inputs.python-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Install deps (Bun)
+        if: inputs.project-type == 'bun'
+        run: bun install --frozen-lockfile
+
+      - name: Install deps (Python)
+        if: inputs.project-type == 'python'
+        run: uv sync --frozen
+
+      - name: Type check (Bun)
+        if: inputs.project-type == 'bun'
+        run: bunx tsc --noEmit
+
+      - name: Type check (Python)
+        if: inputs.project-type == 'python'
+        run: uv run pyright .
+
+      - name: Lint (Bun)
+        if: inputs.project-type == 'bun'
+        run: bun eslint --max-warnings 0 .
+
+      - name: Lint (Python)
+        if: inputs.project-type == 'python'
+        run: uv run ruff check .
+
+      - name: Format check (Bun)
+        if: inputs.project-type == 'bun'
+        run: bun prettier --check .
+
+      - name: Format check (Python)
+        if: inputs.project-type == 'python'
+        run: uv run ruff format --check .
+
+  extended-lint:
+    name: Extended Lint
+    needs: static-analysis
+    if: inputs.run-extended-lint == true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: hadolint (Dockerfile)
+        if: hashFiles('**/Dockerfile') != ''
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: '**/Dockerfile'
+
+      - name: shellcheck
+        if: hashFiles('**/*.sh') != ''
+        uses: ludeeus/action-shellcheck@master
+        env:
+          SHELLCHECK_OPTS: -e SC1091
+
+      - name: Setup Bun (for stylelint)
+        if: hashFiles('**/*.css') != '' && inputs.project-type == 'bun'
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: stylelint
+        if: hashFiles('**/*.css') != '' && inputs.project-type == 'bun'
+        run: |
+          bun install --frozen-lockfile
+          bunx stylelint "**/*.css"
+
+      - name: sqlfluff
+        if: hashFiles('**/*.sql') != ''
+        run: |
+          pip install sqlfluff
+          sqlfluff lint "**/*.sql"

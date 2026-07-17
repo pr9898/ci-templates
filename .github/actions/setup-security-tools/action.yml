@@ -1,0 +1,48 @@
+name: Setup Security Tools
+description: Install Trivy and Conftest for IaC and filesystem scanning.
+
+inputs:
+  trivy-version:
+    description: Trivy version to install.
+    required: false
+    default: latest
+  conftest-version:
+    description: Conftest version (without leading 'v').
+    required: false
+    default: '0.45.0'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Trivy
+      uses: aquasecurity/setup-trivy@v0.2.0
+      with:
+        version: ${{ inputs.trivy-version }}
+
+    - name: Cache Trivy DB
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/trivy/db
+          ~/.cache/trivy/metadata
+        key: trivy-db-${{ runner.os }}-${{ github.run_id }}
+        restore-keys: |
+          trivy-db-${{ runner.os }}-
+      id: trivy-cache
+
+    - name: Download Trivy DB (if cache miss)
+      if: steps.trivy-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: trivy image --download-db-only --quiet || true
+
+    - name: Install Conftest
+      shell: bash
+      run: |
+        VERSION="v${{ inputs.conftest-version }}"
+        SHORT="${{ inputs.conftest-version }}"
+        URL="https://github.com/open-policy-agent/conftest/releases/download"
+        curl -sSL -o /tmp/conftest.tar.gz \
+          "${URL}/${VERSION}/conftest_${SHORT}_Linux_x86_64.tar.gz"
+        sudo tar -xzf /tmp/conftest.tar.gz -C /usr/local/bin conftest
+        rm /tmp/conftest.tar.gz
+        conftest --version

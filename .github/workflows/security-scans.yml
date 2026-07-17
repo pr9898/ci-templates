@@ -1,0 +1,116 @@
+name: Security Scans
+
+# B 类：安全扫描（semgrep / gitleaks / trivy / knip / checkov / conftest）
+# 被 standard-ci.yml 调用，不直接被业务项目调用。
+
+on:
+  workflow_call:
+    inputs:
+      project-type:
+        type: string
+        required: true
+      run-knip:
+        type: boolean
+        default: true
+        description: 'Run knip dead-code detection (bun only)'
+      fail-on-severity:
+        type: string
+        default: high
+        description: 'none / low / medium / high / critical'
+      bun-version:
+        type: string
+        default: latest
+      working-directory:
+        type: string
+        default: .
+    secrets:
+      SEMGREP_APP_TOKEN:
+        required: false
+      GITLEAKS_LICENSE:
+        required: false
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    env:
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup security tools (Trivy + Conftest)
+        uses: ./.github/actions/setup-security-tools
+
+      - name: Setup Bun (for knip)
+        if: inputs.project-type == 'bun' && inputs.run-knip == true
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Semgrep
+        if: ${{ env.SEMGREP_APP_TOKEN != '' }}
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: auto
+          generate-sarif: true
+
+      - name: Skip Semgrep (no token)
+        if: ${{ env.SEMGREP_APP_TOKEN == '' }}
+        run: echo "::warning::secret SEMGREP_APP_TOKEN not set, skipping semgrep"
+
+      - name: Upload Semgrep SARIF
+        if: ${{ env.SEMGREP_APP_TOKEN != '' && always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Trivy filesystem scan
+        run: |
+          case "${{ inputs.fail-on-severity }}" in
+            critical) SEVERITY="CRITICAL" ;;
+            high)     SEVERITY="HIGH,CRITICAL" ;;
+            medium)   SEVERITY="MEDIUM,HIGH,CRITICAL" ;;
+            low)      SEVERITY="LOW,MEDIUM,HIGH,CRITICAL" ;;
+            none)     SEVERITY="LOW,MEDIUM,HIGH,CRITICAL"; EXIT_CODE=0 ;;
+            *)        SEVERITY="HIGH,CRITICAL" ;;
+          esac
+          EXIT_CODE="${EXIT_CODE:-1}"
+          trivy fs --severity "$SEVERITY" --exit-code "$EXIT_CODE" --quiet .
+
+      - name: Trivy config scan (IaC)
+        run: trivy config --quiet . || true
+
+      - name: Knip (dead code)
+        if: inputs.project-type == 'bun' && inputs.run-knip == true
+        run: |
+          bun install --frozen-lockfile
+          bun knip --no-progress
+
+      - name: Checkov (IaC)
+        if: hashFiles('**/*.tf', '**/Dockerfile', '**/k8s*.yaml', '**/k8s*.yml') != ''
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform,dockerfile,kubernetes
+          compact: true
+          quiet: true
+
+      - name: Conftest (policy)
+        if: hashFiles('policy/**') != ''
+        run: conftest test . --combine --parser yaml,json

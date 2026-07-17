@@ -1,0 +1,30 @@
+name: Setup Bun
+description: Install Bun runtime and cache its install directory based on lockfile hash.
+
+inputs:
+  bun-version:
+    description: Bun version to install (e.g. 'latest' or '1.1.42').
+    required: false
+    default: latest
+  working-directory:
+    description: Directory containing bun.lock / bun.lockb.
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Cache Bun install cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.bun/install/cache
+          ${{ inputs.working-directory }}/node_modules
+        key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock', '**/bun.lockb') }}
+        restore-keys: |
+          bun-${{ runner.os }}-
