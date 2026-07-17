@@ -86,10 +86,11 @@ jobs:
           title: "🚀 CI 开始"
           status: started
           extra: |
-            > **项目类型**: ${{ inputs.project-type }}
-            > **静态分析**: ${{ inputs.run-static-analysis }}
-            > **安全扫描**: ${{ inputs.run-security-scan }}
-            > **依赖审计**: ${{ inputs.run-dependency-audit }}
+            📋 检查配置
+            📦 项目类型　${{ inputs.project-type }}
+            🔍 静态分析　${{ inputs.run-static-analysis }}
+            🛡️ 安全扫描　${{ inputs.run-security-scan }}
+            📦 依赖审计　${{ inputs.run-dependency-audit }}
 
   lint:
     name: Lint & Format
@@ -174,12 +175,13 @@ jobs:
           fi
 
           # 多行 output 用 DELIMITER 语法
+          # 注意：extra 里的行不加 > 前缀，notify-wecom action 会统一添加
           {
             echo "extra<<EOF"
-            echo "> 📋 检查结果"
-            echo "> 🔍 静态分析　${LINT_ICON}"
-            echo "> 🛡️ 安全扫描　${SEC_ICON}"
-            echo "> 📦 依赖审计　${DEP_ICON}"
+            echo "📋 检查结果"
+            echo "🔍 静态分析　${LINT_ICON}"
+            echo "🛡️ 安全扫描　${SEC_ICON}"
+            echo "📦 依赖审计　${DEP_ICON}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
