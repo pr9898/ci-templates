@@ -12,9 +12,9 @@ CI 用 `bun.lock` / `uv.lock` 锁定工具版本。本地执行 `bun install --f
 
 ```yaml
 with:
-  run-security-scan: false  # 跳过整个 B 类
-  run-knip: false           # 仅跳过 knip
-  run-extended-lint: false  # 不跑 hadolint 等（默认已关）
+  run-security-scan: false # 跳过整个 B 类
+  run-knip: false # 仅跳过 knip
+  run-extended-lint: false # 不跑 hadolint 等（默认已关）
 ```
 
 ### secret 未配置时会怎样？

@@ -4,20 +4,20 @@ v1 首版支持 `bun` 与 `python` 两种 project-type。
 
 ## 工具矩阵
 
-| 检查项 | `bun` | `python` | 命令 |
-| --- | --- | --- | --- |
-| type-check | Y | Y | `bunx tsc --noEmit` / `uv run pyright .` |
-| lint | Y | Y | `bun eslint --max-warnings 0 .` / `uv run ruff check .` |
-| format | Y | Y | `bun prettier --check .` / `uv run ruff format --check .` |
-| extended-lint | 可选 | 可选 | hadolint / shellcheck / stylelint / sqlfluff |
-| semgrep | Y | Y | `semgrep ci --config auto` |
-| gitleaks | Y | Y | `gitleaks detect --source .` |
-| trivy (fs + config) | Y | Y | `trivy fs --severity HIGH,CRITICAL .` + `trivy config .` |
-| knip | Y | N | `bun knip` |
-| checkov | 按需 | 按需 | 仅当仓库有 IaC 文件时触发 |
-| conftest | 按需 | 按需 | 仅当 `policy/` 目录存在时触发 |
-| dep-audit | Y | Y | `bun audit --production` / `uv run pip-audit` |
-| lockfile | Y | Y | `bun install --frozen-lockfile` / `uv sync --frozen` |
+| 检查项              | `bun` | `python` | 命令                                                      |
+| ------------------- | ----- | -------- | --------------------------------------------------------- |
+| type-check          | Y     | Y        | `bunx tsc --noEmit` / `uv run pyright .`                  |
+| lint                | Y     | Y        | `bun eslint --max-warnings 0 .` / `uv run ruff check .`   |
+| format              | Y     | Y        | `bun prettier --check .` / `uv run ruff format --check .` |
+| extended-lint       | 可选  | 可选     | hadolint / shellcheck / stylelint / sqlfluff              |
+| semgrep             | Y     | Y        | `semgrep ci --config auto`                                |
+| gitleaks            | Y     | Y        | `gitleaks detect --source .`                              |
+| trivy (fs + config) | Y     | Y        | `trivy fs --severity HIGH,CRITICAL .` + `trivy config .`  |
+| knip                | Y     | N        | `bun knip`                                                |
+| checkov             | 按需  | 按需     | 仅当仓库有 IaC 文件时触发                                 |
+| conftest            | 按需  | 按需     | 仅当 `policy/` 目录存在时触发                             |
+| dep-audit           | Y     | Y        | `bun audit --production` / `uv run pip-audit`             |
+| lockfile            | Y     | Y        | `bun install --frozen-lockfile` / `uv sync --frozen`      |
 
 ## 如何选择
 
@@ -69,12 +69,12 @@ v1 首版支持 `bun` 与 `python` 两种 project-type。
 
 `run-extended-lint: true` 时追加：
 
-| 工具 | 触发条件 | 检查对象 |
-| --- | --- | --- |
-| hadolint | 仓库有 `**/Dockerfile` | Dockerfile 语法 |
-| shellcheck | 仓库有 `**/*.sh` | Shell 脚本 |
-| stylelint | 仓库有 `**/*.css` 且 project-type=bun | CSS 样式 |
-| sqlfluff | 仓库有 `**/*.sql` | SQL 语法 |
+| 工具       | 触发条件                              | 检查对象        |
+| ---------- | ------------------------------------- | --------------- |
+| hadolint   | 仓库有 `**/Dockerfile`                | Dockerfile 语法 |
+| shellcheck | 仓库有 `**/*.sh`                      | Shell 脚本      |
+| stylelint  | 仓库有 `**/*.css` 且 project-type=bun | CSS 样式        |
+| sqlfluff   | 仓库有 `**/*.sql`                     | SQL 语法        |
 
 工具不存在对应文件时自动跳过，不会失败。
 

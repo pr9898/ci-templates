@@ -9,17 +9,17 @@ on:
       project-type:
         type: string
         required: true
-        description: 'Project type: bun or python'
+        description: "Project type: bun or python"
       run-extended-lint:
         type: boolean
         default: false
-        description: 'Run hadolint / shellcheck / stylelint / sqlfluff'
+        description: "Run hadolint / shellcheck / stylelint / sqlfluff"
       bun-version:
         type: string
         default: latest
       python-version:
         type: string
-        default: '3.12'
+        default: "3.12"
       working-directory:
         type: string
         default: .
@@ -32,7 +32,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Bun
         if: inputs.project-type == 'bun'
@@ -89,13 +89,13 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: hadolint (Dockerfile)
         if: hashFiles('**/Dockerfile') != ''
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: '**/Dockerfile'
+          dockerfile: "**/Dockerfile"
 
       - name: shellcheck
         if: hashFiles('**/*.sh') != ''

@@ -17,12 +17,12 @@ jobs:
   ci:
     uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
-      project-type: 'python'
-      python-version: '3.12'
+      project-type: "python"
+      python-version: "3.12"
       run-static-analysis: true
       run-security-scan: true
       run-dependency-audit: true
-      fail-on-severity: 'high'
+      fail-on-severity: "high"
       wecom-notify: true
     secrets:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}

@@ -9,52 +9,52 @@ on:
       project-type:
         type: string
         default: bun
-        description: 'bun or python (v1 supported types)'
+        description: "bun or python (v1 supported types)"
       run-static-analysis:
         type: boolean
         default: true
-        description: 'Run A-class checks (type-check / lint / format)'
+        description: "Run A-class checks (type-check / lint / format)"
       run-security-scan:
         type: boolean
         default: true
-        description: 'Run B-class checks (semgrep / gitleaks / trivy / knip / checkov / conftest)'
+        description: "Run B-class checks (semgrep / gitleaks / trivy / knip / checkov / conftest)"
       run-dependency-audit:
         type: boolean
         default: true
-        description: 'Run C-class checks (dep-audit / lockfile-freshness)'
+        description: "Run C-class checks (dep-audit / lockfile-freshness)"
       run-extended-lint:
         type: boolean
         default: false
-        description: 'Run hadolint / shellcheck / stylelint / sqlfluff'
+        description: "Run hadolint / shellcheck / stylelint / sqlfluff"
       run-knip:
         type: boolean
         default: true
-        description: 'Run knip dead-code detection (bun only)'
+        description: "Run knip dead-code detection (bun only)"
       run-osv-scanner:
         type: boolean
         default: false
-        description: 'Run OSV scanner (slow, for scheduled runs)'
+        description: "Run OSV scanner (slow, for scheduled runs)"
       fail-on-severity:
         type: string
         default: high
-        description: 'none / low / medium / high / critical'
+        description: "none / low / medium / high / critical"
       bun-version:
         type: string
         default: latest
       python-version:
         type: string
-        default: '3.12'
+        default: "3.12"
       working-directory:
         type: string
         default: .
       wecom-notify:
         type: boolean
         default: true
-        description: 'Send WeCom notification at CI start and end'
+        description: "Send WeCom notification at CI start and end"
       debug:
         type: boolean
         default: false
-        description: 'Enable debug output'
+        description: "Enable debug output"
     secrets:
       WECOM_BOT_KEY:
         required: false
@@ -75,7 +75,7 @@ jobs:
     env:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Debug context
         if: ${{ inputs.debug == true }}
         env:
@@ -83,7 +83,7 @@ jobs:
         run: echo "$INPUTS"
       - uses: ./.github/actions/notify-wecom
         with:
-          title: '🚀 CI 开始'
+          title: "🚀 CI 开始"
           status: started
           extra: |
             > **项目类型**: ${{ inputs.project-type }}
@@ -136,7 +136,7 @@ jobs:
     env:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Compute overall status
         id: status

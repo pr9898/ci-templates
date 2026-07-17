@@ -1,4 +1,9 @@
 # Dependencies
+# 模板仓库本身不维护 package.json/bun.lock——_test-internal.yml 在 CI 里临时 bun add prettier
+package.json
+package-lock.json
+bun.lock
+bun.lockb
 node_modules/
 .pnp
 .pnp.js

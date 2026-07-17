@@ -41,12 +41,12 @@ curl -o .github/workflows/ci.yml \
 
 将原有 secrets 映射到新接口：
 
-| 原 secret | 新 secret | 说明 |
-| --- | --- | --- |
-| 自定义 semgrep token | `SEMGREP_APP_TOKEN` | Semgrep 规则集 |
-| 自定义通知 webhook | `WECOM_BOT_KEY` | 企业微信群机器人 |
-| DockerHub 凭证 | `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` | Trivy 拉镜像用 |
-| Gitleaks 许可 | `GITLEAKS_LICENSE` | 私有仓库需要 |
+| 原 secret            | 新 secret                                | 说明             |
+| -------------------- | ---------------------------------------- | ---------------- |
+| 自定义 semgrep token | `SEMGREP_APP_TOKEN`                      | Semgrep 规则集   |
+| 自定义通知 webhook   | `WECOM_BOT_KEY`                          | 企业微信群机器人 |
+| DockerHub 凭证       | `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` | Trivy 拉镜像用   |
+| Gitleaks 许可        | `GITLEAKS_LICENSE`                       | 私有仓库需要     |
 
 原有不在新接口里的 secret，如果是项目特有的，在业务仓库新增独立 workflow 引用。
 
@@ -101,9 +101,9 @@ uv sync --frozen
 
 ```yaml
 with:
-  run-extended-lint: false  # 不跑 hadolint 等
-  run-knip: false           # 仅跳过 knip
-  run-osv-scanner: false    # 不跑 OSV（默认已关）
+  run-extended-lint: false # 不跑 hadolint 等
+  run-knip: false # 仅跳过 knip
+  run-osv-scanner: false # 不跑 OSV（默认已关）
 ```
 
 ### 需要保留原有自定义检查

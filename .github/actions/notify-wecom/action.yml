@@ -11,7 +11,7 @@ inputs:
   extra:
     description: Extra markdown lines to append to the message body.
     required: false
-    default: ''
+    default: ""
 
 runs:
   using: composite

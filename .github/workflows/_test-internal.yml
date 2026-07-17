@@ -13,7 +13,7 @@ jobs:
     name: Actionlint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Run actionlint
         uses: reviewdog/action-actionlint@v1
         with:
@@ -25,7 +25,7 @@ jobs:
     name: Yamllint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install yamllint
         run: pip install yamllint
       - name: Run yamllint
@@ -35,10 +35,10 @@ jobs:
     name: Prettier Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - name: Install prettier
         run: bun add prettier
       - name: Run prettier --check
-        run: bun prettier --check '.github/**/*.yml' '.github/**/*.yaml' 'templates/**/*.yml' 'docs/**/*.md'
+        run: bun prettier --check '.github/**/*.yml' 'templates/**/*.yml' 'docs/**/*.md'

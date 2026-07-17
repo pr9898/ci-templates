@@ -12,11 +12,11 @@ on:
       run-knip:
         type: boolean
         default: true
-        description: 'Run knip dead-code detection (bun only)'
+        description: "Run knip dead-code detection (bun only)"
       fail-on-severity:
         type: string
         default: high
-        description: 'none / low / medium / high / critical'
+        description: "none / low / medium / high / critical"
       bun-version:
         type: string
         default: latest
@@ -43,7 +43,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 

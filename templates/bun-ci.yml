@@ -17,13 +17,13 @@ jobs:
   ci:
     uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
-      project-type: 'bun'
+      project-type: "bun"
       run-static-analysis: true
       run-security-scan: true
       run-dependency-audit: true
       run-extended-lint: false
       run-knip: true
-      fail-on-severity: 'high'
+      fail-on-severity: "high"
       wecom-notify: true
     secrets:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}

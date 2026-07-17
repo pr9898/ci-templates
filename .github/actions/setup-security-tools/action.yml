@@ -9,7 +9,7 @@ inputs:
   conftest-version:
     description: Conftest version (without leading 'v').
     required: false
-    default: '0.45.0'
+    default: "0.45.0"
 
 runs:
   using: composite

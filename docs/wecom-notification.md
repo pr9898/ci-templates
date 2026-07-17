@@ -75,8 +75,8 @@ WECOM_BOT_KEY=abc12345-6789-def0-1234-567890abcdef
 `templates/bun-ci.yml` 和 `templates/python-ci.yml` 已默认引用 `WECOM_BOT_KEY`，无需额外修改：
 
 ```yaml
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+secrets:
+  WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
 ```
 
 ## 关闭通知
@@ -86,8 +86,8 @@ WECOM_BOT_KEY=abc12345-6789-def0-1234-567890abcdef
 在业务仓库的 `.github/workflows/ci.yml` 中设置：
 
 ```yaml
-    with:
-      wecom-notify: false
+with:
+  wecom-notify: false
 ```
 
 ### 仅不配置 secret
@@ -123,12 +123,12 @@ WECOM_BOT_KEY=abc12345-6789-def0-1234-567890abcdef
 
 ### errcode 说明
 
-| errcode | 含义 | 解决方法 |
-| --- | --- | --- |
-| 0 | 成功 | — |
-| 93000 | webhook 不存在或被禁用 | 重新创建群机器人 |
-| 40014 | key 错误 | 检查 WECOM_BOT_KEY 是否完整复制 |
-| 45009 | 超频（20 条/分钟） | 合并 CI 触发，减少频率 |
+| errcode | 含义                   | 解决方法                        |
+| ------- | ---------------------- | ------------------------------- |
+| 0       | 成功                   | —                               |
+| 93000   | webhook 不存在或被禁用 | 重新创建群机器人                |
+| 40014   | key 错误               | 检查 WECOM_BOT_KEY 是否完整复制 |
+| 45009   | 超频（20 条/分钟）     | 合并 CI 触发，减少频率          |
 
 ### 通知内容乱码
 

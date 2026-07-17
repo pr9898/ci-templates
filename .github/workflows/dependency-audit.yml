@@ -12,17 +12,17 @@ on:
       run-osv-scanner:
         type: boolean
         default: false
-        description: 'Run OSV scanner (slow, recommended for scheduled runs)'
+        description: "Run OSV scanner (slow, recommended for scheduled runs)"
       fail-on-severity:
         type: string
         default: high
-        description: 'none / low / medium / high / critical'
+        description: "none / low / medium / high / critical"
       bun-version:
         type: string
         default: latest
       python-version:
         type: string
-        default: '3.12'
+        default: "3.12"
       working-directory:
         type: string
         default: .
@@ -35,7 +35,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Bun
         if: inputs.project-type == 'bun'

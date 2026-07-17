@@ -5,7 +5,7 @@ inputs:
   python-version:
     description: Python version (e.g. '3.12', '3.11').
     required: false
-    default: '3.12'
+    default: "3.12"
   working-directory:
     description: Directory containing uv.lock or requirements*.txt.
     required: false

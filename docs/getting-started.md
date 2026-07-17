@@ -31,12 +31,12 @@ curl -o .github/workflows/ci.yml \
 
 打开 `.github/workflows/ci.yml`，按需调整 `with:` 下的参数：
 
-| 参数 | 默认 | 说明 |
-| --- | --- | --- |
-| `project-type` | `bun` | `bun` 或 `python` |
+| 参数                | 默认    | 说明                          |
+| ------------------- | ------- | ----------------------------- |
+| `project-type`      | `bun`   | `bun` 或 `python`             |
 | `run-extended-lint` | `false` | 是否跑 hadolint/shellcheck 等 |
-| `fail-on-severity` | `high` | 失败阈值 |
-| `wecom-notify` | `true` | 是否发企业微信通知 |
+| `fail-on-severity`  | `high`  | 失败阈值                      |
+| `wecom-notify`      | `true`  | 是否发企业微信通知            |
 
 完整参数见 [Inputs 参考](inputs-reference.md)。
 
