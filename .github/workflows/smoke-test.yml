@@ -8,10 +8,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - ".github/actions/notify-wecom/**"
-      - ".github/workflows/standard-ci.yml"
-      - ".github/workflows/smoke-test.yml"
 
 jobs:
   notify-smoke-test:
