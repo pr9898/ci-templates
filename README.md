@@ -29,12 +29,73 @@
 - **C 类 依赖审计**：dep-audit / pip-audit / lockfile-freshness
 - **企业微信通知**：CI 开始前 + 完成后自动发送 markdown 消息到群机器人
 
+## 如何用本项目做 CI 检查
+
+业务项目只需在自己仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@v1`，即可获得完整的 A/B/C 三类共 13 项 CI 检查 + 企业微信通知。
+
+### 触发时机
+
+在业务仓库的 ci.yml 里定义 `on:`，常见配置：
+
+```yaml
+on:
+  pull_request: # 提 PR 时触发（推荐）
+  push:
+    branches: [main] # push 到 main 时触发
+```
+
+也可加 `workflow_dispatch:` 支持手动触发，或用 `schedule:` 定时跑依赖审计。
+
+### 检查内容（按 project-type 自动选择）
+
+| 阶段            | bun 项目                                                   | python 项目                                             |
+| --------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| **A. 静态分析** | `bunx tsc --noEmit` → `eslint` → `prettier --check`        | `uv run pyright` → `ruff check` → `ruff format --check` |
+| **B. 安全扫描** | semgrep + gitleaks + trivy + knip + checkov + conftest     | semgrep + gitleaks + trivy + checkov + conftest         |
+| **C. 依赖审计** | `bun install --frozen-lockfile` → `bun audit --production` | `uv sync --frozen` → `uv run pip-audit`                 |
+
+三阶段**并行执行**，互不阻塞。`run-extended-lint: true` 还会追加 hadolint / shellcheck / stylelint / sqlfluff。
+
+### 看到的结果
+
+**企业微信群**（配置 `WECOM_BOT_KEY` 后）：
+
+```
+🚀 CI 开始
+仓库: your-org/your-app | 分支: feature/x | 触发者: someone
+[查看 CI 详情](https://github.com/...)
+
+✅ CI 完成（或 ❌ CI 失败）
+lint: success | security: success | dependency: failure
+[查看 CI 详情](https://github.com/...)
+```
+
+**GitHub PR 页面**：
+
+- Checks 标签显示 `Lint & Format` / `Security Scan` / `Dependency Audit` 三个 job 状态
+- Semgrep 发现的漏洞出现在仓库 Security 标签页（SARIF 上传）
+- Gitleaks 在 PR 上评论泄露位置
+
+### 失败处理
+
+- **HIGH/CRITICAL** 漏洞或检查失败 → 阻断 PR（默认）
+- **MEDIUM** → 警告但不阻断
+- **LOW** → 仅报告
+- 用 `fail-on-severity` 调整阈值：`none` / `low` / `medium` / `high`（默认）/ `critical`
+
+某个工具的 secret 没配？对应 step 自动跳过并 warning，不阻断其他检查。
+
+### 接入只需 3 步
+
+1. **复制样板**：从 `templates/` 选 `bun-ci.yml` 或 `python-ci.yml`，存为业务仓库的 `.github/workflows/ci.yml`
+2. **配置 secret**（可选）：在 GitHub Org 层面配一次 `WECOM_BOT_KEY`（见 [Secrets 配置](#secrets-配置)）
+3. **提 PR**：自动触发，观察企业微信通知和 PR Checks
+
+详细的参数调整、项目类型选择、迁移步骤见 [docs/getting-started.md](docs/getting-started.md)。
+
 ## Quick Start
 
-1. **复制模板**：从 `templates/` 选对应项目类型的样板到你的仓库 `.github/workflows/ci.yml`
-2. **改参数**：修改 `project-type`（`bun` 或 `python`）和 `secrets` 映射
-3. **配置 secrets**（可选，全部缺失也能跑）：推荐在 GitHub **Organization 层面**配一次 `WECOM_BOT_KEY`，所有仓库自动继承（见下文 [Secrets 配置](#secrets-配置)）
-4. **提交 PR**：观察 CI 结果与企业微信通知
+最小可用的业务仓库 ci.yml（详见上文 [如何用本项目做 CI 检查](#如何用本项目做-ci-检查)）：
 
 ```yaml
 # 业务项目 .github/workflows/ci.yml
@@ -47,13 +108,10 @@ jobs:
   ci:
     uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
-      project-type: 'bun'
-      run-extended-lint: true
-      fail-on-severity: 'high'
+      project-type: 'bun' # 或 'python'
       wecom-notify: true
     secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
-      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }} # org-level 配一次即可
 ```
 
 ## Project Types
