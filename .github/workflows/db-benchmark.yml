@@ -1,0 +1,109 @@
+name: DB Benchmark
+
+# E 类：PostgreSQL 入库速度基准（pgbench）
+# 启动临时 PG 容器跑 pgbench，验证 TPS / 延迟是否达标。
+# 默认关闭，建议 schedule 触发。不依赖业务仓库的 DB 连接。
+
+on:
+  workflow_call:
+    inputs:
+      pg-version:
+        type: string
+        default: "16"
+        description: "PostgreSQL 版本"
+      scale-factor:
+        type: number
+        default: 10
+        description: "pgbench scale factor（约等于客户端数 × 100k 行）"
+      duration:
+        type: number
+        default: 60
+        description: "测试时长（秒）"
+      clients:
+        type: number
+        default: 10
+        description: "并发客户端数"
+      report-threshold-tps:
+        type: number
+        default: 500
+        description: "TPS 告警阈值。低于则失败。"
+
+jobs:
+  db-benchmark:
+    name: pgbench Benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start PostgreSQL container
+        shell: bash
+        env:
+          PG_VERSION: ${{ inputs.pg-version }}
+        run: |
+          docker run -d --name pgbench-pg \
+            -e POSTGRES_USER=bench \
+            -e POSTGRES_PASSWORD=bench \
+            -e POSTGRES_DB=bench \
+            -p 5432:5432 \
+            postgres:${PG_VERSION}-alpine
+          # 等待就绪
+          for _ in $(seq 1 30); do
+            if docker exec pgbench-pg pg_isready -U bench >/dev/null 2>&1; then
+              echo "PostgreSQL ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Initialize pgbench
+        shell: bash
+        env:
+          SCALE: ${{ inputs.scale-factor }}
+        run: |
+          docker exec pgbench-pg pgbench \
+            -U bench -h localhost \
+            -i -s "$SCALE" bench
+
+      - name: Run pgbench
+        id: bench
+        shell: bash
+        env:
+          CLIENTS: ${{ inputs.clients }}
+          DURATION: ${{ inputs.duration }}
+        run: |
+          docker exec pgbench-pg pgbench \
+            -U bench -h localhost \
+            -c "$CLIENTS" -j "$CLIENTS" -T "$DURATION" bench 2>&1 | tee pgbench-output.txt
+          # 提取 tps
+          TPS=$(grep -oP 'tps = \K[0-9.]+' pgbench-output.txt | head -1)
+          echo "tps=$TPS" >> "$GITHUB_OUTPUT"
+          echo "测得 TPS: $TPS"
+
+      - name: Check TPS threshold
+        env:
+          TPS: ${{ steps.bench.outputs.tps }}
+          THRESHOLD: ${{ inputs.report-threshold-tps }}
+        run: |
+          if [ -z "$TPS" ]; then
+            echo "::error::未能解析 TPS 值"
+            exit 1
+          fi
+          if awk "BEGIN{exit !($TPS < $THRESHOLD)}"; then
+            echo "::error::TPS $TPS 低于阈值 $THRESHOLD"
+            exit 1
+          fi
+          echo "✓ TPS $TPS ≥ 阈值 $THRESHOLD"
+
+      - name: Upload pgbench report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgbench-report
+          path: pgbench-output.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f pgbench-pg || true

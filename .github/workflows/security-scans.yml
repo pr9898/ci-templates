@@ -32,6 +32,12 @@ on:
         required: false
       DOCKERHUB_TOKEN:
         required: false
+      SONAR_TOKEN:
+        required: false
+      SNYK_TOKEN:
+        required: false
+      GITGUARDIAN_API_KEY:
+        required: false
 
 jobs:
   security-scan:
@@ -39,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -114,3 +123,46 @@ jobs:
       - name: Conftest (policy)
         if: hashFiles('policy/**') != ''
         run: conftest test . --combine --parser yaml,json
+
+      # ============================================================
+      # 外部安全服务（B+ 类）—— 全部 optional secret，缺失优雅跳过
+      # ============================================================
+
+      - name: SonarQube scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.sources=.
+
+      - name: Skip SonarQube (no token)
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "::warning::secret SONAR_TOKEN not set, skipping SonarQube scan"
+
+      - name: Snyk scan
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: snyk/actions@v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --fail-on=all
+          command: test
+
+      - name: Skip Snyk (no token)
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "::warning::secret SNYK_TOKEN not set, skipping Snyk dependency scan"
+
+      - name: GitGuardian scan
+        if: ${{ env.GITGUARDIAN_API_KEY != '' }}
+        uses: GitGuardian/ggshield-action@v1
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+        with:
+          args: secret scan ci
+
+      - name: Skip GitGuardian (no token)
+        if: ${{ env.GITGUARDIAN_API_KEY == '' }}
+        run: echo "::warning::secret GITGUARDIAN_API_KEY not set, skipping GitGuardian secrets scan"

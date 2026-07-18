@@ -79,6 +79,80 @@ rm .github/workflows/old-ci.yml
 - [ ] 旧 workflow 文件已删除
 - [ ] 团队已知晓新 CI 的开关参数
 
+## v1.0 → v1.1 升级
+
+v1.1 新增 D/E/F 类能力，**完全向后兼容**——v1.0 用户零改动即可升级。
+
+### 无需任何改动
+
+- `@v1` moving tag 自动指向 v1.1.0
+- 所有新增 inputs 默认关闭
+- 所有新增 secrets 缺失时优雅跳过
+- A/B/C 类行为完全不变
+
+### 可选：启用 D 类上线卡点
+
+```yaml
+with:
+  run-release-gates: true
+  jira-prefix: 'PROJ'
+  jira-warning-only: true # 过渡期先 warning
+```
+
+业务仓库需准备：
+
+- `policy/` 目录（参考模板仓库 `policy/` 示例，或留空跳过 OPA）
+- `.semgrep/` 目录（参考模板仓库 `.semgrep/` 规则集，或留空跳过自定义规则）
+- `commitlint.config.js`（参考 `templates/commitlint.config.js`，或用 CI 默认配置）
+
+### 可选：启用 B+ 类外部安全服务
+
+```yaml
+secrets:
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+```
+
+配哪个用哪个，未配的自动跳过。详见 [外部安全服务](external-security-tools.md)。
+
+### 可选：启用 E 类上线后验证
+
+建议单独配 `schedule` workflow，避免每次 PR 都跑：
+
+```yaml
+# .github/workflows/weekly-e2e.yml
+name: Weekly E2E
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+jobs:
+  ci:
+    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    with:
+      run-release-gates: true
+      run-ai-content-test: true
+      run-load-test: true
+      run-db-benchmark: true
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### 新增 secrets 映射
+
+| v1.1 新增 secret      | 用途                 | 是否必须 |
+| --------------------- | -------------------- | -------- |
+| `SONAR_TOKEN`         | SonarQube 扫描       | 否       |
+| `SNYK_TOKEN`          | Snyk 依赖扫描        | 否       |
+| `GITGUARDIAN_API_KEY` | GitGuardian 密钥扫描 | 否       |
+| `OPENAI_API_KEY`      | promptfoo 调用 LLM   | 否       |
+| `ANTHROPIC_API_KEY`   | promptfoo 调用 LLM   | 否       |
+
+### F 类流程模板
+
+业务仓库可参考模板仓库的 `.github/PULL_REQUEST_TEMPLATE.md` 和 `.github/ISSUE_TEMPLATE/release-checklist.md`，复制到自己的 `.github/` 目录即可启用。这些是仓库级文件，不走 reusable workflow，模板仓库升级不会自动同步。
+
 ## 常见迁移问题
 
 ### 本地与 CI 结果不一致

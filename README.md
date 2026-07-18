@@ -11,22 +11,34 @@
   │  with: { project-type: 'bun', ... }
   │  secrets: { WECOM_BOT_KEY: ..., SEMGREP_APP_TOKEN: ... }
   ▼
-┌─────────────────────────────────────────────────────────┐
-│  standard-ci.yml (对外唯一入口)                          │
-│                                                          │
-│  notify-start ──► lint ──┐                               │
-│                  security ├─► notify-end                 │
-│                  dep ─────┘                               │
-└─────────────────────────────────────────────────────────┘
-         │              │              │
-         ▼              ▼              ▼
-   lint-checks    security-scans  dependency-audit
-   (A 类 4 项)    (B 类 6 项)      (C 类 3 项)
+┌──────────────────────────────────────────────────────────────────────┐
+│  standard-ci.yml (对外唯一入口)                                       │
+│                                                                       │
+│  notify-start ──► lint ──────────┐                                    │
+│                  security (B+) ──┤                                    │
+│                  dependency ─────┤                                    │
+│                  release-gates(D)┤──► [ai-content, load-test,        │
+│                                  │     db-benchmark] (E) ──► notify-end│
+└──────────────────────────────────────────────────────────────────────┘
+         │              │              │            │
+         ▼              ▼              ▼            ▼
+   lint-checks    security-scans  dependency   release-gates
+   (A 类)         (B 类 + B+ 外部) (C 类)        (D 类)
+                                                       │
+                                                       ▼
+                                              ai-content / load-test
+                                              / db-benchmark (E 类)
+
+  F 类：PR 模板 / release checklist / commitlint+husky / 文档
 ```
 
 - **A 类 静态分析与格式化**：type-check / lint / extended-lint / format
 - **B 类 安全扫描**：semgrep / gitleaks / trivy / knip / checkov / conftest
+- **B+ 类 外部安全服务**：SonarQube / Snyk / GitGuardian（v1.1 新增，optional secret）
 - **C 类 依赖审计**：dep-audit / pip-audit / lockfile-freshness
+- **D 类 上线前卡点**：OPA test / Semgrep 自定义规则 / 敏感数据扫描 / Jira 校验 / Schema 校验 / commitlint（v1.1 新增，默认关闭）
+- **E 类 上线后验证**：promptfoo AI 内容安全 / k6 压测 / pgbench DB 基准（v1.1 新增，默认关闭）
+- **F 类 流程卡点**：PR 模板 / 发布 checklist / 本地钩子模板（v1.1 新增）
 - **企业微信通知**：CI 开始前 + 完成后自动发送 markdown 消息到群机器人
 
 ## 如何用本项目做 CI 检查
@@ -48,13 +60,16 @@ on:
 
 ### 检查内容（按 project-type 自动选择）
 
-| 阶段            | bun 项目                                                   | python 项目                                             |
-| --------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
-| **A. 静态分析** | `bunx tsc --noEmit` → `eslint` → `prettier --check`        | `uv run pyright` → `ruff check` → `ruff format --check` |
-| **B. 安全扫描** | semgrep + gitleaks + trivy + knip + checkov + conftest     | semgrep + gitleaks + trivy + checkov + conftest         |
-| **C. 依赖审计** | `bun install --frozen-lockfile` → `bun audit --production` | `uv sync --frozen` → `uv run pip-audit`                 |
+| 阶段             | bun 项目                                                          | python 项目                                             |
+| ---------------- | ----------------------------------------------------------------- | ------------------------------------------------------- |
+| **A. 静态分析**  | `bunx tsc --noEmit` → `eslint` → `prettier --check`               | `uv run pyright` → `ruff check` → `ruff format --check` |
+| **B. 安全扫描**  | semgrep + gitleaks + trivy + knip + checkov + conftest            | semgrep + gitleaks + trivy + checkov + conftest         |
+| **B+. 外部安全** | SonarQube + Snyk + GitGuardian（optional secret）                 | 同左                                                    |
+| **C. 依赖审计**  | `bun install --frozen-lockfile` → `bun audit --production`        | `uv sync --frozen` → `uv run pip-audit`                 |
+| **D. 上线卡点**  | OPA test / Semgrep 自定义 / 敏感数据 / Jira / Schema / commitlint | 同左                                                    |
+| **E. 上线验证**  | promptfoo / k6 / pgbench（默认关闭）                              | 同左                                                    |
 
-三阶段**并行执行**，互不阻塞。`run-extended-lint: true` 还会追加 hadolint / shellcheck / stylelint / sqlfluff。
+A/B/C/D 类**并行执行**，互不阻塞。E 类依赖 D 类通过后触发。`run-extended-lint: true` 还会追加 hadolint / shellcheck / stylelint / sqlfluff。
 
 ### 看到的结果
 
@@ -129,13 +144,18 @@ v1 首版支持：
 
 **全部可选**，缺失时优雅跳过并 warning，不阻断 CI：
 
-| secret               | 用途                                                      |
-| -------------------- | --------------------------------------------------------- |
-| `WECOM_BOT_KEY`      | 企业微信群机器人 webhook key，配置后发送 CI 开始/结束通知 |
-| `SEMGREP_APP_TOKEN`  | Semgrep App 规则集 token                                  |
-| `GITLEAKS_LICENSE`   | Gitleaks 私有仓库许可                                     |
-| `DOCKERHUB_USERNAME` | Trivy 拉镜像避免限流                                      |
-| `DOCKERHUB_TOKEN`    | 同上                                                      |
+| secret                | 用途                                                      |
+| --------------------- | --------------------------------------------------------- |
+| `WECOM_BOT_KEY`       | 企业微信群机器人 webhook key，配置后发送 CI 开始/结束通知 |
+| `SEMGREP_APP_TOKEN`   | Semgrep App 规则集 token                                  |
+| `GITLEAKS_LICENSE`    | Gitleaks 私有仓库许可                                     |
+| `DOCKERHUB_USERNAME`  | Trivy 拉镜像避免限流                                      |
+| `DOCKERHUB_TOKEN`     | 同上                                                      |
+| `SONAR_TOKEN`         | SonarQube 扫描 token（v1.1）                              |
+| `SNYK_TOKEN`          | Snyk 依赖扫描 token（v1.1）                               |
+| `GITGUARDIAN_API_KEY` | GitGuardian 密钥扫描（v1.1）                              |
+| `OPENAI_API_KEY`      | promptfoo 调用 OpenAI（v1.1）                             |
+| `ANTHROPIC_API_KEY`   | promptfoo 调用 Anthropic（v1.1）                          |
 
 ### Secrets 配置
 
@@ -163,15 +183,20 @@ v1 首版支持：
 
 详见 [docs/inputs-reference.md](docs/inputs-reference.md)。常用：
 
-| input                  | 默认    | 说明                                         |
-| ---------------------- | ------- | -------------------------------------------- |
-| `project-type`         | `bun`   | `bun` / `python`                             |
-| `run-static-analysis`  | `true`  | A 类总开关                                   |
-| `run-security-scan`    | `true`  | B 类总开关                                   |
-| `run-dependency-audit` | `true`  | C 类总开关                                   |
-| `run-extended-lint`    | `false` | hadolint / shellcheck / stylelint / sqlfluff |
-| `fail-on-severity`     | `high`  | `none`/`low`/`medium`/`high`/`critical`      |
-| `wecom-notify`         | `true`  | 是否发送企业微信通知                         |
+| input                  | 默认    | 说明                                             |
+| ---------------------- | ------- | ------------------------------------------------ |
+| `project-type`         | `bun`   | `bun` / `python`                                 |
+| `run-static-analysis`  | `true`  | A 类总开关                                       |
+| `run-security-scan`    | `true`  | B 类总开关（含 B+ 外部服务）                     |
+| `run-dependency-audit` | `true`  | C 类总开关                                       |
+| `run-extended-lint`    | `false` | hadolint / shellcheck / stylelint / sqlfluff     |
+| `fail-on-severity`     | `high`  | `none`/`low`/`medium`/`high`/`critical`          |
+| `run-release-gates`    | `false` | D 类上线卡点（OPA / Jira / Schema / commitlint） |
+| `run-ai-content-test`  | `false` | E 类 promptfoo AI 内容安全                       |
+| `run-load-test`        | `false` | E 类 k6 / Locust 压测                            |
+| `run-db-benchmark`     | `false` | E 类 pgbench DB 基准                             |
+| `jira-prefix`          | `""`    | Jira 项目前缀（如 `PROJ`）                       |
+| `wecom-notify`         | `true`  | 是否发送企业微信通知                             |
 
 ## 版本管理
 
@@ -191,6 +216,13 @@ uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
 - [企业微信通知配置](docs/wecom-notification.md)
 - [迁移指南](docs/migration-guide.md)
 - [FAQ](docs/faq.md)
+- [Release Gates（D 类上线卡点）](docs/release-gates.md)
+- [AI 内容安全测试](docs/ai-content-testing.md)
+- [压测配置](docs/load-testing.md)
+- [DB 基准测试](docs/db-benchmark.md)
+- [commitlint + husky 本地钩子](docs/commitlint-husky.md)
+- [外部安全服务](docs/external-security-tools.md)
+- [PR 模板与发布 Checklist](docs/pr-checklist.md)
 
 ## License
 

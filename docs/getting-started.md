@@ -64,3 +64,58 @@ curl -o .github/workflows/ci.yml \
 - [企业微信通知配置](wecom-notification.md)
 - [迁移指南](migration-guide.md)
 - [FAQ](faq.md)
+
+## 高级配置：D/E/F 类
+
+v1.1 新增 D/E/F 三类能力，全部默认关闭，按需开启。
+
+### D 类：上线前卡点
+
+适合团队成熟后逐步启用。开启后 PR 必须通过 OPA 策略、敏感数据扫描、Jira 工单关联、Agent 配置 Schema 校验、commitlint 才能 merged。
+
+```yaml
+with:
+  run-release-gates: true
+  jira-prefix: 'PROJ' # 你的 Jira 项目前缀
+  jira-warning-only: true # 过渡期先 warning
+  schema-check-paths: 'agents/*.json' # 有 Agent 配置时启用
+```
+
+详见 [Release Gates](release-gates.md)。
+
+### E 类：上线后验证
+
+调用真实 LLM 或压测目标服务，有成本，**不建议每次 PR 都跑**。建议 `schedule` 或 `workflow_dispatch` 触发。
+
+```yaml
+on:
+  schedule:
+    - cron: '0 3 * * 1' # 每周一凌晨
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    with:
+      run-release-gates: true # E 类依赖 D 类通过
+      run-ai-content-test: true
+      run-load-test: true
+      run-db-benchmark: true
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+详见 [AI 内容测试](ai-content-testing.md) / [压测](load-testing.md) / [DB 基准](db-benchmark.md)。
+
+### F 类：流程卡点
+
+PR 模板和发布 checklist 已内置在模板仓库的 `.github/` 下，业务仓库可参考修改。
+
+- [PR 模板与发布 Checklist](pr-checklist.md)
+- [commitlint + husky 本地钩子](commitlint-husky.md)
+
+### B+ 类：外部安全服务
+
+引入 SonarQube / Snyk / GitGuardian，全部 optional secret。
+
+详见 [外部安全服务](external-security-tools.md)。

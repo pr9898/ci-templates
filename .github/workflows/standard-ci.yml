@@ -51,6 +51,84 @@ on:
         type: boolean
         default: true
         description: "Send WeCom notification at CI start and end"
+      # ===== D 类：上线前卡点 =====
+      run-release-gates:
+        type: boolean
+        default: false
+        description: "Run D-class release gates (OPA test / Semgrep custom / Jira / Schema / commitlint)"
+      jira-prefix:
+        type: string
+        default: ""
+        description: "Jira project prefix (e.g. PROJ). Empty = format-only check."
+      jira-warning-only:
+        type: boolean
+        default: false
+        description: "Jira check failures as warnings only (transition mode)"
+      schema-check-paths:
+        type: string
+        default: ""
+        description: "Agent config glob (e.g. 'agents/*.json'). Empty = skip Schema check."
+      schema-file:
+        type: string
+        default: "templates/agent-config.schema.json"
+        description: "JSON Schema file path for Schema check"
+      # ===== E 类：上线后验证 =====
+      run-ai-content-test:
+        type: boolean
+        default: false
+        description: "Run promptfoo AI content safety test"
+      run-load-test:
+        type: boolean
+        default: false
+        description: "Run k6 / Locust load test"
+      run-db-benchmark:
+        type: boolean
+        default: false
+        description: "Run pgbench DB benchmark"
+      promptfoo-test-path:
+        type: string
+        default: ./tests/promptfoo
+        description: "promptfoo test directory"
+      promptfoo-fail-threshold:
+        type: number
+        default: 0.5
+        description: "promptfoo pass-rate threshold (0-1)"
+      load-test-framework:
+        type: string
+        default: k6
+        description: "load test framework: k6 or locust"
+      load-test-script:
+        type: string
+        default: ./tests/load/scenario.js
+        description: "load test script path"
+      load-test-duration:
+        type: string
+        default: 30s
+        description: "load test duration"
+      load-test-vus:
+        type: number
+        default: 10
+        description: "virtual users"
+      load-test-target-url:
+        type: string
+        default: ""
+        description: "load test target URL"
+      db-pg-version:
+        type: string
+        default: "16"
+        description: "PostgreSQL version for pgbench"
+      db-scale-factor:
+        type: number
+        default: 10
+        description: "pgbench scale factor"
+      db-duration:
+        type: number
+        default: 60
+        description: "pgbench duration (seconds)"
+      db-threshold-tps:
+        type: number
+        default: 500
+        description: "pgbench TPS threshold"
       debug:
         type: boolean
         default: false
@@ -65,6 +143,18 @@ on:
       DOCKERHUB_USERNAME:
         required: false
       DOCKERHUB_TOKEN:
+        required: false
+      # ===== B+ 类外部安全服务 =====
+      SONAR_TOKEN:
+        required: false
+      SNYK_TOKEN:
+        required: false
+      GITGUARDIAN_API_KEY:
+        required: false
+      # ===== E 类 AI 内容测试 =====
+      OPENAI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
         required: false
 
 jobs:
@@ -91,6 +181,10 @@ jobs:
             🔍 静态分析　${{ inputs.run-static-analysis }}
             🛡️ 安全扫描　${{ inputs.run-security-scan }}
             📦 依赖审计　${{ inputs.run-dependency-audit }}
+            🚦 上线卡点　${{ inputs.run-release-gates }}
+            🤖 AI 内容　${{ inputs.run-ai-content-test }}
+            ⚡ 压测　　　${{ inputs.run-load-test }}
+            🗄️ DB 基准　${{ inputs.run-db-benchmark }}
 
   lint:
     name: Lint & Format
@@ -129,9 +223,59 @@ jobs:
       working-directory: ${{ inputs.working-directory }}
     secrets: inherit
 
+  # ===== D 类：上线前卡点（与 A/B/C 并行） =====
+  release-gates:
+    name: Release Gates (D)
+    if: ${{ inputs.run-release-gates == true }}
+    uses: ./.github/workflows/release-gates.yml
+    with:
+      project-type: ${{ inputs.project-type }}
+      jira-prefix: ${{ inputs.jira-prefix }}
+      jira-warning-only: ${{ inputs.jira-warning-only }}
+      schema-check-paths: ${{ inputs.schema-check-paths }}
+      schema-file: ${{ inputs.schema-file }}
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit
+
+  # ===== E 类：上线后验证（依赖 D 类通过） =====
+  ai-content:
+    name: AI Content Test (E)
+    if: ${{ inputs.run-ai-content-test == true && needs.release-gates.result == 'success' }}
+    needs: [release-gates]
+    uses: ./.github/workflows/ai-content-test.yml
+    with:
+      test-path: ${{ inputs.promptfoo-test-path }}
+      fail-threshold: ${{ inputs.promptfoo-fail-threshold }}
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit
+
+  load-test:
+    name: Load Test (E)
+    if: ${{ inputs.run-load-test == true && needs.release-gates.result == 'success' }}
+    needs: [release-gates]
+    uses: ./.github/workflows/load-test.yml
+    with:
+      framework: ${{ inputs.load-test-framework }}
+      test-script: ${{ inputs.load-test-script }}
+      duration: ${{ inputs.load-test-duration }}
+      vus: ${{ inputs.load-test-vus }}
+      target-url: ${{ inputs.load-test-target-url }}
+      working-directory: ${{ inputs.working-directory }}
+
+  db-benchmark:
+    name: DB Benchmark (E)
+    if: ${{ inputs.run-db-benchmark == true && needs.release-gates.result == 'success' }}
+    needs: [release-gates]
+    uses: ./.github/workflows/db-benchmark.yml
+    with:
+      pg-version: ${{ inputs.db-pg-version }}
+      scale-factor: ${{ inputs.db-scale-factor }}
+      duration: ${{ inputs.db-duration }}
+      report-threshold-tps: ${{ inputs.db-threshold-tps }}
+
   notify-end:
     name: Notify CI End (WeCom)
-    needs: [lint, security, dependency]
+    needs: [lint, security, dependency, release-gates, ai-content, load-test, db-benchmark]
     if: ${{ always() && inputs.wecom-notify == true }}
     runs-on: ubuntu-latest
     env:
@@ -146,6 +290,10 @@ jobs:
           LINT="${{ needs.lint.result || 'skipped' }}"
           SEC="${{ needs.security.result || 'skipped' }}"
           DEP="${{ needs.dependency.result || 'skipped' }}"
+          GATES="${{ needs.release-gates.result || 'skipped' }}"
+          AI="${{ needs.ai-content.result || 'skipped' }}"
+          LOAD="${{ needs.load-test.result || 'skipped' }}"
+          DB="${{ needs.db-benchmark.result || 'skipped' }}"
 
           # result 转 emoji + 中文
           result_icon() {
@@ -161,10 +309,18 @@ jobs:
           [ "$LINT" = "failure" ] && FAIL=1
           [ "$SEC" = "failure" ] && FAIL=1
           [ "$DEP" = "failure" ] && FAIL=1
+          [ "$GATES" = "failure" ] && FAIL=1
+          [ "$AI" = "failure" ] && FAIL=1
+          [ "$LOAD" = "failure" ] && FAIL=1
+          [ "$DB" = "failure" ] && FAIL=1
 
           LINT_ICON=$(result_icon "$LINT")
           SEC_ICON=$(result_icon "$SEC")
           DEP_ICON=$(result_icon "$DEP")
+          GATES_ICON=$(result_icon "$GATES")
+          AI_ICON=$(result_icon "$AI")
+          LOAD_ICON=$(result_icon "$LOAD")
+          DB_ICON=$(result_icon "$DB")
 
           if [ "$FAIL" = "1" ]; then
             echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
@@ -182,6 +338,10 @@ jobs:
             echo "🔍 静态分析　${LINT_ICON}"
             echo "🛡️ 安全扫描　${SEC_ICON}"
             echo "📦 依赖审计　${DEP_ICON}"
+            echo "🚦 上线卡点　${GATES_ICON}"
+            echo "🤖 AI 内容　${AI_ICON}"
+            echo "⚡ 压测　　　${LOAD_ICON}"
+            echo "🗄️ DB 基准　${DB_ICON}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 

@@ -1,0 +1,23 @@
+name: Setup OPA
+description: Install Open Policy Agent (OPA) CLI for `opa test` / `opa fmt` / `opa check`.
+
+inputs:
+  opa-version:
+    description: OPA version (without leading 'v', e.g. '0.68.0').
+    required: false
+    default: "0.68.0"
+
+runs:
+  using: composite
+  steps:
+    - name: Install OPA
+      shell: bash
+      run: |
+        set -euo pipefail
+        VERSION="v${{ inputs.opa-version }}"
+        SHORT="${{ inputs.opa-version }}"
+        URL="https://openpolicyagent.org/downloads/${VERSION}/opa_linux_amd64_static"
+        curl -sSL -o /tmp/opa "${URL}"
+        sudo chmod +x /tmp/opa
+        sudo mv /tmp/opa /usr/local/bin/opa
+        opa version

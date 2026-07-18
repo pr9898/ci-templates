@@ -1,0 +1,45 @@
+rules:
+  - id: ai-hallucinated-import-ts
+    message: "AI 生成代码疑似幻觉 import：未声明的模块。请确认模块存在且拼写正确。"
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: ai-code-quality
+    patterns:
+      - pattern: import $NAME from "$PATH"
+      - pattern-not: import $NAME from "react"
+      - pattern-not: import $NAME from "next/..."
+      - pattern-not: import $NAME from "@/..."
+      - pattern-not: import $NAME from "./..."
+      - pattern-not: import $NAME from "../..."
+  - id: ai-hallucinated-import-py
+    message: "AI 生成代码疑似幻觉 import：未声明的模块。请确认模块存在且拼写正确。"
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: ai-code-quality
+    patterns:
+      - pattern: from $PATH import $NAME
+      - pattern-not: from typing import $NAME
+      - pattern-not: from $REL import $NAME
+  - id: ai-unsafe-context-injection
+    message: "AI 生成代码将用户输入拼接到 LLM prompt/SQL/Shell，存在注入风险。"
+    languages: [typescript, javascript, python]
+    severity: ERROR
+    metadata:
+      category: ai-security
+    pattern-either:
+      - pattern: $LLM.complete($PROMPT + $USER_INPUT)
+      - pattern: $CUR.execute($SQL + $USER_INPUT)
+      - pattern: exec($CMD + $USER_INPUT)
+      - pattern: child_process.exec(`${...}${$USER_INPUT}`)
+  - id: ai-duplicate-function
+    message: "AI 生成代码常见模式：同一作用域内疑似重复函数定义。"
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: ai-code-quality
+    pattern: |
+      function $NAME(...) { ... }
+      ...
+      function $NAME(...) { ... }

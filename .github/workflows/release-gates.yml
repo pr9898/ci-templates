@@ -1,0 +1,243 @@
+name: Release Gates
+
+# D 类：上线前卡点（OPA test / AI 安全扫描 / 敏感数据扫描 / Jira 校验 / Schema 校验 / 测试集校验 / commitlint）
+# 被 standard-ci.yml 调用，不直接被业务项目调用。
+# 与 B 类 security-scans.yml 的分工：
+#   - security-scans: 通用安全扫描（Semgrep auto / Gitleaks / Trivy / Conftest）
+#   - release-gates:  项目特定合规卡点（自定义规则 / 策略单元测试 / 工单关联 / Schema）
+
+on:
+  workflow_call:
+    inputs:
+      project-type:
+        type: string
+        required: true
+      jira-prefix:
+        type: string
+        default: ""
+        description: "Jira 项目前缀（如 PROJ）。空则仅校验工单 ID 格式，不强制前缀。"
+      schema-check-paths:
+        type: string
+        default: ""
+        description: "Agent 配置文件 glob（如 'agents/*.json'）。空则跳过 Schema 校验。"
+      schema-file:
+        type: string
+        default: "templates/agent-config.schema.json"
+        description: "JSON Schema 文件路径。"
+      jira-warning-only:
+        type: boolean
+        default: false
+        description: "true 时 Jira 校验失败仅 warning 不阻断（团队成熟前过渡用）。"
+      working-directory:
+        type: string
+        default: .
+
+jobs:
+  release-gates:
+    name: Release Gates (D)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ============================================================
+      # 1. OPA test —— 验证 Rego 策略逻辑（白盒单元测试）
+      # ============================================================
+      - name: Setup OPA
+        if: hashFiles('policy/**') != ''
+        uses: ./.github/actions/setup-opa
+
+      - name: OPA fmt check (policies)
+        if: hashFiles('policy/**') != ''
+        run: |
+          if ! opa fmt --list --fail policy/ ; then
+            echo "::error::Rego 文件未格式化。本地执行: opa fmt -w policy/"
+            exit 1
+          fi
+
+      - name: OPA test (policy unit tests)
+        if: hashFiles('policy/**') != ''
+        run: opa test ./policy/... -v
+
+      - name: Skip OPA (no policy/)
+        if: hashFiles('policy/**') == ''
+        run: echo "::notice::未发现 policy/ 目录，跳过 OPA test 与 Conftest。业务仓库可参考模板仓库 policy/ 示例接入。"
+
+      # ============================================================
+      # 2. Semgrep 自定义规则集 —— AI 代码 + 敏感数据 + Jira 注释
+      #    与 security-scans.yml 的 semgrep/semgrep-action@v1 (config: auto) 分工：
+      #    auto 覆盖通用安全规则，本步骤覆盖项目特定规则
+      # ============================================================
+      - name: Setup Semgrep (local)
+        if: hashFiles('.semgrep/*.yml') != ''
+        shell: bash
+        run: |
+          # 不依赖 SEMGREP_APP_TOKEN，直接用本地 semgrep CLI 跑自定义规则
+          pip install --quiet semgrep
+          semgrep --version
+
+      - name: Semgrep custom rules (AI code / sensitive data / Jira comments)
+        if: hashFiles('.semgrep/*.yml') != ''
+        run: |
+          set -euo pipefail
+          # 用 semgrep 的目录配置语法，自动加载 .semgrep/ 下所有规则
+          semgrep --config .semgrep/ --error --sarif --output semgrep-custom.sarif . || EXIT=$?
+          # --error 使 WARNING 以上失败；ERROR 必然阻断
+          exit ${EXIT:-0}
+
+      - name: Upload Semgrep custom SARIF
+        if: hashFiles('.semgrep/*.yml') != '' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-custom.sarif
+          category: semgrep-custom
+
+      - name: Skip Semgrep custom (no .semgrep/)
+        if: hashFiles('.semgrep/*.yml') == ''
+        run: echo "::notice::未发现 .semgrep/ 目录，跳过自定义规则扫描。"
+
+      # ============================================================
+      # 3. Jira 工单 ID 关联校验
+      #    校验 PR 标题 + 所有 commit message 是否包含 [A-Z]+-\d+
+      #    若 jira-prefix 非空，则必须匹配 ${prefix}-\d+
+      # ============================================================
+      - name: Jira ID check (PR title + commits)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          JIRA_PREFIX: ${{ inputs.jira-prefix }}
+          WARNING_ONLY: ${{ inputs.jira-warning-only }}
+        run: |
+          set -euo pipefail
+          if [ -n "$JIRA_PREFIX" ]; then
+            PATTERN="\\b${JIRA_PREFIX}-[0-9]+\\b"
+          else
+            PATTERN="\\b[A-Z]+-[0-9]+\\b"
+          fi
+
+          fail=0
+          # PR 标题
+          if ! echo "$PR_TITLE" | grep -Eq "$PATTERN"; then
+            echo "::error::PR 标题缺少 Jira 工单 ID（匹配: $PATTERN）。标题: $PR_TITLE"
+            fail=1
+          else
+            echo "✓ PR 标题包含 Jira ID"
+          fi
+
+          # 所有 commit message（PR base..head）
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          while IFS= read -r sha; do
+            msg=$(git log -1 --format='%s' "$sha")
+            if ! echo "$msg" | grep -Eq "$PATTERN"; then
+              echo "::error::commit $sha 缺少 Jira 工单 ID: $msg"
+              fail=1
+            fi
+          done < <(git rev-list "$BASE..$HEAD")
+
+          if [ "$fail" = "1" ]; then
+            if [ "$WARNING_ONLY" = "true" ]; then
+              echo "::warning::Jira ID 校验未通过，但 jira-warning-only=true，本次仅告警不阻断。"
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "✓ 所有 commit 与 PR 标题均包含 Jira 工单 ID"
+
+      - name: Skip Jira check (non-PR event)
+        if: github.event_name != 'pull_request'
+        run: echo "::notice::非 PR 事件，跳过 Jira 工单 ID 校验（仅 PR 触发时检查 commit 关联）。"
+
+      # ============================================================
+      # 4. Agent 配置 JSON Schema 校验（ajv）
+      # ============================================================
+      - name: Setup AI tools (ajv)
+        if: inputs.schema-check-paths != ''
+        uses: ./.github/actions/setup-ai-tools
+
+      - name: Schema check (Agent config)
+        if: inputs.schema-check-paths != ''
+        env:
+          SCHEMA_FILE: ${{ inputs.schema-file }}
+          TARGET_GLOB: ${{ inputs.schema-check-paths }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$SCHEMA_FILE" ]; then
+            echo "::error::Schema 文件不存在: $SCHEMA_FILE"
+            exit 1
+          fi
+          # 用 git ls-files 处理 glob
+          mapfile -t FILES < <(git ls-files "$TARGET_GLOB")
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::notice::glob '$TARGET_GLOB' 未匹配到文件，跳过 Schema 校验。"
+            exit 0
+          fi
+          echo "校验 ${#FILES[@]} 个文件，Schema: $SCHEMA_FILE"
+          npx --yes ajv validate -s "$SCHEMA_FILE" -d "${FILES[@]}"
+
+      - name: Skip Schema check (no paths)
+        if: inputs.schema-check-paths == ''
+        run: echo "::notice::schema-check-paths 为空，跳过 Agent 配置 Schema 校验。"
+
+      # ============================================================
+      # 5. 测试集目录校验（tests/ 存在 + 非 Git ignore）
+      # ============================================================
+      - name: Test directory check
+        run: |
+          set -euo pipefail
+          if [ ! -d tests ] && [ ! -d test ] && [ ! -d __tests__ ]; then
+            echo "::warning::未发现 tests/ / test/ / __tests__/ 目录。建议业务仓库提交测试用例并纳入 Git 管理。"
+            exit 0
+          fi
+          # 检查 tests 目录是否被 Git 跟踪
+          TRACKED=$(git ls-files tests test __tests__ 2>/dev/null | head -1)
+          if [ -z "$TRACKED" ]; then
+            echo "::error::测试目录存在但未被 Git 跟踪。请将测试用例提交到 Git。"
+            exit 1
+          fi
+          echo "✓ 测试集已纳入 Git 管理: $TRACKED ..."
+
+      # ============================================================
+      # 6. commitlint —— Conventional Commits + Jira 规则（CI 层）
+      # ============================================================
+      - name: Setup commitlint
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/setup-ai-tools
+
+      - name: commitlint check (PR commits)
+        if: github.event_name == 'pull_request'
+        env:
+          JIRA_PREFIX: ${{ inputs.jira-prefix }}
+        run: |
+          set -euo pipefail
+          CONFIG_ARGS=()
+          # 业务仓库自带 commitlint.config.js 时优先使用；否则用临时内联配置
+          if [ ! -f commitlint.config.js ] && [ ! -f .commitlintrc.js ] && [ ! -f .commitlintrc.json ]; then
+            echo "::notice::业务仓库未提供 commitlint 配置，使用模板默认（Conventional Commits + Jira）。"
+            printf '%s\n' \
+              "module.exports = {" \
+              "  extends: ['@commitlint/config-conventional']," \
+              "  rules: {" \
+              "    'references-empty': [2, 'never']," \
+              "  }," \
+              "};" > /tmp/commitlint.config.js
+            CONFIG_ARGS=(-f /tmp/commitlint.config.js)
+          fi
+
+          # 安装依赖
+          npm install --no-save --silent \
+            @commitlint/cli @commitlint/config-conventional \
+            commitlint-plugin-jira-rules commitlint-config-jira
+
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          npx commitlint "${CONFIG_ARGS[@]}" --from "$BASE" --to "$HEAD" --verbose
+
+      - name: Skip commitlint (non-PR event)
+        if: github.event_name != 'pull_request'
+        run: echo "::notice::非 PR 事件，跳过 commitlint（仅 PR 触发时校验 commit message）。"

@@ -42,3 +42,57 @@ jobs:
         run: bun add prettier
       - name: Run prettier --check
         run: bun prettier --check '.github/**/*.yml' 'templates/**/*.yml' 'docs/**/*.md'
+
+  opa-test:
+    name: OPA Policy Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup OPA
+        uses: ./.github/actions/setup-opa
+      - name: OPA fmt check
+        run: |
+          if ! opa fmt --list --fail policy/ ; then
+            echo "::error::Rego 文件未格式化。本地执行: opa fmt -w policy/"
+            exit 1
+          fi
+      - name: OPA test
+        run: opa test ./policy/... -v
+      - name: OPA check (compile)
+        run: opa check ./policy/...
+
+  conftest-verify:
+    name: Conftest Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup security tools (Trivy + Conftest)
+        uses: ./.github/actions/setup-security-tools
+      - name: Conftest verify (policy compiles)
+        run: conftest verify --policy ./policy/
+      - name: Conftest test on examples (if exist)
+        run: |
+          if [ -d examples ]; then
+            conftest test examples/ --combine --parser yaml,json || true
+          else
+            echo "::notice::无 examples/ 目录，跳过 conftest 集成测试"
+          fi
+
+  semgrep-validate:
+    name: Semgrep Rules Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Semgrep
+        run: pip install semgrep
+      - name: Validate custom rules
+        run: |
+          if [ -d .semgrep ]; then
+            for f in .semgrep/*.yml .semgrep/*.yaml; do
+              [ -f "$f" ] || continue
+              echo "Validating: $f"
+              semgrep --config "$f" --validate
+            done
+          else
+            echo "::notice::无 .semgrep/ 目录，跳过规则校验"
+          fi
