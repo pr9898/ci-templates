@@ -196,6 +196,13 @@ jobs:
         if: ${{ env.SONAR_TOKEN == '' }}
         run: echo "::warning::secret SONAR_TOKEN not set, skipping SonarQube scan"
 
+      - name: Skip SonarQube (no organization)
+        if: ${{ env.SONAR_TOKEN != '' && inputs.sonar-organization == '' }}
+        run: |
+          echo "::notice::SONAR_TOKEN 已配但 sonar-organization input 为空，跳过 SonarQube 扫描"
+          echo "::notice::配置：ci.yml 的 with 下加 sonar-organization: '<your-org-key>'"
+          echo "::notice::org key 见 sonarcloud.io/organizations/<your-org-key> URL"
+
       - name: Snyk scan
         if: ${{ env.SNYK_TOKEN != '' }}
         env:

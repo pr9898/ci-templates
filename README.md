@@ -78,11 +78,20 @@
 
 | 检查项      | 检查什么                         | 需要 key                                   | 缺失行为       |
 | ----------- | -------------------------------- | ------------------------------------------ | -------------- |
-| SonarQube   | 代码质量 + 跨文件漏洞 + 重复代码 | `SONAR_TOKEN` + `sonar-organization` input | 跳过 + warning |
+| SonarQube   | 代码质量 + 跨文件漏洞 + 重复代码 | `SONAR_TOKEN` + `sonar-organization` input | 跳过 + notice  |
 | Snyk        | 第三方依赖漏洞 + 许可证          | `SNYK_TOKEN`                               | 跳过 + warning |
 | GitGuardian | 密钥泄露（SaaS，含历史扫描）     | `GITGUARDIAN_API_KEY`                      | 跳过 + warning |
 
-**启用方式**：无需 input 开关——在 ci.yml 的 `secrets:` 下传递对应 token 即可。配哪个用哪个，未配的自动跳过。
+**启用方式**：
+
+- **Snyk / GitGuardian**：无需 input 开关，`secrets: inherit` 透传对应 token 即可。
+- **SonarQube**：除 `SONAR_TOKEN` secret 外，还需在 ci.yml 的 `with:` 下配置 `sonar-organization`（SonarCloud organization key）。获取方式见 [docs/external-security-tools.md](docs/external-security-tools.md#获取-sonar-organization)。
+
+```yaml
+with:
+  sonar-organization: 'your-sonarcloud-org' # SonarCloud organization key
+secrets: inherit # 含 SONAR_TOKEN
+```
 
 ### C 类：依赖审计（默认开启）
 

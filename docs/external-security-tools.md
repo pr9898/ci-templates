@@ -69,7 +69,24 @@ secrets: inherit # 含 SONAR_TOKEN
 1. 登录 [SonarCloud](https://sonarcloud.io)（或自建 SonarQube）
 2. 右上角头像 → My Account → Security → Generate Tokens
 3. 复制 token
-4. 获取 `sonar-organization`：SonarCloud 仓库 URL `sonarcloud.io/organizations/<org-key>` 中的 `<org-key>`
+
+### 获取 `sonar-organization`
+
+SonarCloud 用 organization 维度隔离项目。即使 `SONAR_TOKEN` 已配，没填 `sonar-organization` 也会跳过扫描并输出 notice。
+
+1. 登录 [sonarcloud.io](https://sonarcloud.io)
+2. 右上角头像 → **My Organizations**
+3. 进入你的 organization 页面
+4. 浏览器地址栏 URL 形如 `https://sonarcloud.io/organizations/<your-org-key>`
+5. `<your-org-key>` 即为 `sonar-organization` 的值
+
+例如 URL 是 `https://sonarcloud.io/organizations/yun-hai-org`，则 ci.yml 写：
+
+```yaml
+with:
+  sonar-organization: 'yun-hai-org'
+secrets: inherit # 含 SONAR_TOKEN
+```
 
 ### 可选：项目级配置
 
