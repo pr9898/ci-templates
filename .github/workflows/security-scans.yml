@@ -201,13 +201,17 @@ jobs:
         run: |
           set -uo pipefail
           npm install -g snyk
-          snyk auth "$SNYK_TOKEN"
-          # --fail-on=all 会对任何可升级依赖失败，过于严格；
-          # 改为只报 high+ 漏洞，发现即 exit 1（snyk 默认行为）
-          snyk test --severity-threshold=high || EXIT=$?
-          if [ -n "${EXIT:-}" ]; then
-            echo "::warning::Snyk 发现 high+ 漏洞或可升级依赖，详见上方输出。模板仓库无业务依赖，此告警不阻断；业务仓库可通过 fail-on-severity 升级为阻断。"
+          # 新版 snyk CLI 通过 SNYK_TOKEN 环境变量直接认证，无需 snyk auth
+          # snyk test 退出码：0=无漏洞，1=有漏洞，2=认证/网络错误
+          # 仅 2（认证错误）视为配置问题，warning 跳过；1（有漏洞）正常阻断
+          snyk test --severity-threshold=high
+          EXIT=$?
+          if [ "$EXIT" = "2" ]; then
+            echo "::warning::Snyk 认证失败（SNYK_TOKEN 无效或过期）或网络错误，跳过扫描。请检查 org secret SNYK_TOKEN。"
             exit 0
+          elif [ "$EXIT" != "0" ]; then
+            echo "::error::Snyk 发现 high+ 漏洞，详见上方输出。"
+            exit 1
           fi
 
       - name: Skip Snyk (no token)
