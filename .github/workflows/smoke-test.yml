@@ -104,13 +104,25 @@ jobs:
     uses: ./.github/workflows/standard-ci.yml
     with:
       project-type: "bun"
-      run-static-analysis: false
+      # 所有检查默认开：无对应文件/不适用时自动跳过并输出 notice
+      # - A 类：无 package.json → tsc/eslint/prettier 跳过
+      # - B 类：无 IaC/policy 目录 → Checkov/Conftest 跳过；无 package.json → Knip 跳过
+      # - B+ 类：有 org secret 才跑（SONAR/SNYK/GITGUARDIAN）
+      # - C 类：无 package.json → bun audit 跳过
+      # - D 类：无 policy/.semgrep/tests 目录 → 对应 step 跳过；非 PR → Jira/commitlint 跳过
+      # - E 类：无 tests/promptfoo/load 目录 → 对应 step 跳过；pgbench 跑本地容器无副作用
+      run-static-analysis: true
       run-security-scan: true
-      # run-knip: true 让 Knip step 跑到"无 package.json"分支输出 notice
-      # （比 run-knip: false 的"已显式关闭"提示更准确）
-      # Setup Bun (for knip) 已加 hashFiles('package.json') 检查，无 package.json 时不装 Bun
       run-knip: true
-      run-dependency-audit: false
+      run-dependency-audit: true
+      run-extended-lint: true
+      run-release-gates: true
+      run-ai-content-test: true
+      run-load-test: true
+      run-db-benchmark: true
+      jira-prefix: "PROJ"
+      jira-warning-only: true
+      schema-check-paths: "agents/*.json"
       # ci-templates 自身也跑 SonarQube（org secret SONAR_TOKEN 已配）
       sonar-organization: "yun-hai-org"
       wecom-notify: true
