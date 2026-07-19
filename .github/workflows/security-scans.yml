@@ -156,6 +156,16 @@ jobs:
           bun install --frozen-lockfile
           bun knip --no-progress
 
+      - name: Skip Knip (not applicable)
+        if: inputs.project-type != 'bun' || inputs.run-knip != true
+        run: |
+          if [ "${{ inputs.project-type }}" != "bun" ]; then
+            echo "::notice::project-type=${{ inputs.project-type }}，knip 仅适用 bun 项目，跳过"
+            echo "::notice::Python 项目用 ruff/pyright 替代死代码检测"
+          else
+            echo "::notice::run-knip=false，已显式关闭 knip 死代码检测"
+          fi
+
       - name: Checkov (IaC)
         if: hashFiles('**/*.tf', '**/Dockerfile', '**/k8s*.yaml', '**/k8s*.yml') != ''
         uses: bridgecrewio/checkov-action@v12
@@ -164,6 +174,12 @@ jobs:
           framework: terraform,dockerfile,kubernetes
           compact: true
           quiet: true
+
+      - name: Skip Checkov (no IaC files)
+        if: hashFiles('**/*.tf', '**/Dockerfile', '**/k8s*.yaml', '**/k8s*.yml') == ''
+        run: |
+          echo "::notice::未发现 IaC 文件（*.tf / Dockerfile / k8s*.yaml），跳过 Checkov"
+          echo "::notice::业务仓库有 Terraform / Dockerfile / K8s manifest 时自动启用"
 
       - name: Conftest (policy)
         if: hashFiles('policy/**') != ''
@@ -176,6 +192,12 @@ jobs:
             exit 0
           fi
           conftest test "${FILES[@]}" --combine
+
+      - name: Skip Conftest (no policy dir)
+        if: hashFiles('policy/**') == ''
+        run: |
+          echo "::notice::无 policy/ 目录，跳过 Conftest 策略校验"
+          echo "::notice::业务仓库可参考模板仓库 policy/ 目录编写 OPA/Rego 策略"
 
       # ============================================================
       # 外部安全服务（B+ 类）—— 全部 optional secret，缺失优雅跳过

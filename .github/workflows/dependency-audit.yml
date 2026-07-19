@@ -84,3 +84,9 @@ jobs:
           scan-args: |-
             -r
             ./
+
+      - name: Skip OSV Scanner (disabled)
+        if: inputs.run-osv-scanner != true
+        run: |
+          echo "::notice::run-osv-scanner=false，跳过 OSV 全量漏洞库扫描"
+          echo "::notice::OSV 较慢，建议 schedule 触发：run-osv-scanner: true"

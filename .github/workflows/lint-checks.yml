@@ -97,11 +97,19 @@ jobs:
         with:
           dockerfile: "**/Dockerfile"
 
+      - name: Skip hadolint (no Dockerfile)
+        if: hashFiles('**/Dockerfile') == ''
+        run: echo "::notice::未发现 Dockerfile，跳过 hadolint"
+
       - name: shellcheck
         if: hashFiles('**/*.sh') != ''
         uses: ludeeus/action-shellcheck@master
         env:
           SHELLCHECK_OPTS: -e SC1091
+
+      - name: Skip shellcheck (no .sh files)
+        if: hashFiles('**/*.sh') == ''
+        run: echo "::notice::未发现 *.sh 脚本，跳过 shellcheck"
 
       - name: Setup Bun (for stylelint)
         if: hashFiles('**/*.css') != '' && inputs.project-type == 'bun'
@@ -116,8 +124,21 @@ jobs:
           bun install --frozen-lockfile
           bunx stylelint "**/*.css"
 
+      - name: Skip stylelint (no CSS or non-bun)
+        if: hashFiles('**/*.css') == '' || inputs.project-type != 'bun'
+        run: |
+          if [ "${{ inputs.project-type }}" != "bun" ]; then
+            echo "::notice::project-type=${{ inputs.project-type }}，stylelint 仅适用 bun 项目，跳过"
+          else
+            echo "::notice::未发现 *.css 文件，跳过 stylelint"
+          fi
+
       - name: sqlfluff
         if: hashFiles('**/*.sql') != ''
         run: |
           pip install sqlfluff
           sqlfluff lint "**/*.sql"
+
+      - name: Skip sqlfluff (no SQL files)
+        if: hashFiles('**/*.sql') == ''
+        run: echo "::notice::未发现 *.sql 文件，跳过 sqlfluff"
