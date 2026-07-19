@@ -93,7 +93,7 @@
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
 ```
@@ -103,7 +103,7 @@ jobs:
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'python'
       python-version: '3.11'
@@ -120,7 +120,7 @@ jobs:
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
       run-release-gates: true
@@ -146,7 +146,7 @@ on:
 
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
       run-release-gates: true
@@ -166,7 +166,7 @@ jobs:
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
       run-static-analysis: false

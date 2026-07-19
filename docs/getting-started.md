@@ -20,11 +20,11 @@
 ```bash
 # Bun 项目
 curl -o .github/workflows/ci.yml \
-  https://raw.githubusercontent.com/pr9898/ci-templates/v1/templates/bun-ci.yml
+  https://raw.githubusercontent.com/Yun-Hai-Org/ci-templates/v1/templates/bun-ci.yml
 
 # Python 项目
 curl -o .github/workflows/ci.yml \
-  https://raw.githubusercontent.com/pr9898/ci-templates/v1/templates/python-ci.yml
+  https://raw.githubusercontent.com/Yun-Hai-Org/ci-templates/v1/templates/python-ci.yml
 ```
 
 ## Step 2: 调整参数
@@ -95,7 +95,7 @@ on:
 
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       run-release-gates: true # E 类依赖 D 类通过
       run-ai-content-test: true

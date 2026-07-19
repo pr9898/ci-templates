@@ -16,7 +16,7 @@ on:
 
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: "bun"
       run-static-analysis: true

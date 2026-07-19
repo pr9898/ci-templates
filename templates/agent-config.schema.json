@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://pr9898/ci-templates/agent-config.schema.json",
+  "$id": "https://Yun-Hai-Org/ci-templates/agent-config.schema.json",
   "title": "Agent Configuration",
   "description": "Agent 配置文件 Schema。用于 ajv 校验，确保配置字段完整、类型正确。",
   "type": "object",

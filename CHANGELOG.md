@@ -94,6 +94,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 全部 secrets 可选，缺失时优雅跳过并 warning
 - 仓库自身 CI `_test-internal.yml`：actionlint + yamllint 校验
 
-[Unreleased]: https://github.com/pr9898/ci-templates/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/pr9898/ci-templates/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/pr9898/ci-templates/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Yun-Hai-Org/ci-templates/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Yun-Hai-Org/ci-templates/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/Yun-Hai-Org/ci-templates/releases/tag/v1.0.0

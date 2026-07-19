@@ -43,7 +43,7 @@ GITGUARDIAN_API_KEY=<your-ggshield-key>
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     secrets:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}

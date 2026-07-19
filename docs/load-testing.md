@@ -29,7 +29,7 @@ cp /path/to/ci-templates/templates/k6-scenario.js tests/load/scenario.js
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       run-release-gates: true
       run-load-test: true

@@ -1,6 +1,6 @@
 name: Standard CI
 
-# 对外唯一入口：业务项目通过 uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1 调用。
+# 对外唯一入口：业务项目通过 uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1 调用。
 # 内部编排 notify-start → [lint / security / dependency] → notify-end。
 
 on:

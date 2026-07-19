@@ -20,7 +20,7 @@ db-benchmark.yml
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       run-release-gates: true
       run-db-benchmark: true

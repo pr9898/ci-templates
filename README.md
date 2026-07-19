@@ -7,7 +7,7 @@
 ```
 业务项目 .github/workflows/ci.yml
   │
-  │  uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+  │  uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
   │  with: { project-type: 'bun', ... }
   │  secrets: { WECOM_BOT_KEY: ..., SEMGREP_APP_TOKEN: ... }
   ▼
@@ -275,7 +275,7 @@ secrets:
 ```yaml
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
     secrets: inherit
@@ -318,7 +318,7 @@ on:
   workflow_dispatch:
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
       run-release-gates: true # E 类依赖 D 类通过
@@ -359,7 +359,7 @@ on:
     branches: [main]
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
@@ -393,7 +393,7 @@ jobs:
 3. Target branches：`Include default branch`
 4. 勾选 `Require status checks to pass before merging` → `Require workflows to pass before merging`
 5. Add workflow：
-   - Repository: `pr9898/ci-templates`
+   - Repository: `Yun-Hai-Org/ci-templates`
    - Workflow: `.github/workflows/standard-ci.yml`
    - Ref: `v1`
 6. Enforcement status：先 `Evaluate`（评估模式，不阻断）测试，确认无误后切 `Active`
@@ -413,7 +413,7 @@ on:
     branches: [main]
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
@@ -462,7 +462,7 @@ jobs:
 业务项目统一使用 `@v1`（moving tag，自动获得 minor 补丁）：
 
 ```yaml
-uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
 ```
 
 稳定性要求高的项目可锁精确版本 `@v1.1.0`。**不要用 `@main`**。

@@ -1,6 +1,6 @@
 # 迁移指南
 
-从自维护 CI 迁移到 `pr9898/ci-templates`。
+从自维护 CI 迁移到 `Yun-Hai-Org/ci-templates`。
 
 ## 迁移步骤
 
@@ -34,7 +34,7 @@ cp /path/to/ci-templates/templates/python-ci.yml .github/workflows/ci.yml
 
 ```bash
 curl -o .github/workflows/ci.yml \
-  https://raw.githubusercontent.com/pr9898/ci-templates/v1/templates/bun-ci.yml
+  https://raw.githubusercontent.com/Yun-Hai-Org/ci-templates/v1/templates/bun-ci.yml
 ```
 
 ### 4. 迁移 secrets
@@ -128,7 +128,7 @@ on:
     - cron: '0 3 * * 1'
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       run-release-gates: true
       run-ai-content-test: true
