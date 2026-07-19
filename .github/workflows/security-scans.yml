@@ -84,10 +84,32 @@ jobs:
           sarif_file: semgrep.sarif
 
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        run: |
+          set -euo pipefail
+          # 直接安装 gitleaks CLI，避免 gitleaks-action@v2 的 Node 20 deprecation
+          VERSION=$(curl -sS https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | grep -oP '"tag_name":\s*"\Kv[^"]+')
+          SHORT="${VERSION#v}"
+          curl -fSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/${VERSION}/gitleaks_${SHORT}_linux_x64.tar.gz"
+          sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          rm /tmp/gitleaks.tar.gz
+          # 扫描当前提交的变更（git diff），生成 SARIF
+          gitleaks detect --source . --report-format sarif --report-path gitleaks.sarif --redact || EXIT=$?
+          # GITLEAKS_LICENSE 用于私有仓库的扩展功能；社区版对公开仓库足够
+          if [ -n "${GITLEAKS_LICENSE:-}" ]; then
+            echo "::notice::GITLEAKS_LICENSE 已配置（私有仓库扩展功能可用）"
+          fi
+          exit "${EXIT:-0}"
+
+      - name: Upload Gitleaks SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
 
       - name: Trivy filesystem scan
         run: |

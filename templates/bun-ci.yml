@@ -35,13 +35,7 @@ jobs:
       run-load-test: false
       run-db-benchmark: false
       wecom-notify: true
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
-      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-      # ===== B+ 类外部安全服务（全部 optional） =====
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-      # ===== E 类 AI 内容测试（promptfoo 调用 LLM 用） =====
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    # secrets: inherit 自动透传 org/repo 级所有 secrets（WECOM_BOT_KEY /
+    # SEMGREP_APP_TOKEN / SONAR_TOKEN / SNYK_TOKEN / GITGUARDIAN_API_KEY /
+    # OPENAI_API_KEY / ANTHROPIC_API_KEY 等），未配置的自动跳过
+    secrets: inherit

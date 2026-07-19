@@ -250,7 +250,13 @@ with:
 
 #### 3. secret 存在性（B+ 类与 E 类 AI 测试）
 
-B+ 类外部安全服务和 E 类 promptfoo 无需 input 开关，根据 secret 是否配置自动决定：
+B+ 类外部安全服务和 E 类 promptfoo 无需 input 开关，根据 secret 是否配置自动决定。推荐用 `secrets: inherit` 一次性透传所有 org/repo secrets：
+
+```yaml
+secrets: inherit # 自动透传 SONAR_TOKEN / SNYK_TOKEN / GITGUARDIAN_API_KEY / OPENAI_API_KEY 等
+```
+
+或逐个声明（等价写法）：
 
 ```yaml
 secrets:
@@ -272,8 +278,7 @@ jobs:
     uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: 'bun'
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+    secrets: inherit
 ```
 
 跑 A + B + C 三类共 13 项检查 + 企业微信通知。
@@ -297,11 +302,7 @@ with:
 with:
   project-type: 'python'
   run-security-scan: true
-secrets:
-  SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-  GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+secrets: inherit # 自动透传 SEMGREP/SONAR/SNYK/GITGUARDIAN 等 token
 ```
 
 #### 定时全量验证（E 类，独立 workflow）
@@ -327,9 +328,7 @@ jobs:
       load-test-target-url: 'https://staging.example.com'
       promptfoo-fail-threshold: 0.8
       db-threshold-tps: 800
-    secrets:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    secrets: inherit # 含 OPENAI/ANTHROPIC API key 供 promptfoo 调用
 ```
 
 ### 失败处理
@@ -364,8 +363,8 @@ jobs:
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+    # secrets: inherit 自动透传 org/repo 级所有 secrets，未配置的自动跳过
+    secrets: inherit
 ```
 
 **优点**：零版本门槛、配置可见可调试、开发者可在 with 下自行调整开关。
@@ -418,8 +417,7 @@ jobs:
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }} # org-level 配一次即可
+    secrets: inherit # 自动透传 org/repo secrets，未配置的自动跳过
 ```
 
 提 PR 后看到的反馈：
