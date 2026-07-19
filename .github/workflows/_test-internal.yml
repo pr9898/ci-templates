@@ -58,32 +58,9 @@ jobs:
             exit 1
           fi
       - name: OPA test
-        run: opa test ./policy/... -v
+        run: opa test policy/ -v
       - name: OPA check (compile)
-        run: opa check ./policy/...
-
-  conftest-verify:
-    name: Conftest Verify
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Setup security tools (Trivy + Conftest)
-        uses: ./.github/actions/setup-security-tools
-      - name: Conftest verify (policy compiles)
-        continue-on-error: true
-        run: |
-          if conftest verify --policy ./policy/; then
-            echo "✓ conftest verify 通过"
-          else
-            echo "::warning::conftest verify 失败，但 opa check 已在 OPA Policy Tests job 中覆盖编译检查，此处不阻断。"
-          fi
-      - name: Conftest test on examples (if exist)
-        run: |
-          if [ -d examples ]; then
-            conftest test examples/ --combine --parser yaml,json || true
-          else
-            echo "::notice::无 examples/ 目录，跳过 conftest 集成测试"
-          fi
+        run: opa check policy/
 
   semgrep-validate:
     name: Semgrep Rules Validate

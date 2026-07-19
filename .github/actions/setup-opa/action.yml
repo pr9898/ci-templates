@@ -3,9 +3,9 @@ description: Install Open Policy Agent (OPA) CLI for `opa test` / `opa fmt` / `o
 
 inputs:
   opa-version:
-    description: OPA version (without leading 'v', e.g. '0.68.0').
+    description: OPA version (without leading 'v', e.g. '1.18.2').
     required: false
-    default: "0.68.0"
+    default: "1.18.2"
 
 runs:
   using: composite

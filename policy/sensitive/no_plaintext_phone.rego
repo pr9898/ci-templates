@@ -5,9 +5,9 @@ package sensitive
 
 phone_pattern := "^1[3-9][0-9]{9}$"
 
-deny[msg] {
-    walk(input, [path, val])
-    is_string(val)
-    regex.match(phone_pattern, val)
-    msg := sprintf("发现手机号明文: %v (路径: %v)", [val, path])
+deny contains msg if {
+	walk(input, [path, val])
+	is_string(val)
+	regex.match(phone_pattern, val)
+	msg := sprintf("发现手机号明文: %v (路径: %v)", [val, path])
 }

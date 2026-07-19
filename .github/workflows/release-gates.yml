@@ -62,7 +62,7 @@ jobs:
 
       - name: OPA test (policy unit tests)
         if: hashFiles('policy/**') != ''
-        run: opa test ./policy/... -v
+        run: opa test policy/ -v
 
       - name: Skip OPA (no policy/)
         if: hashFiles('policy/**') == ''
