@@ -21,13 +21,19 @@ runs:
       run: |
         set -euo pipefail
         if [ "$TRIVY_VERSION" = "latest" ]; then
+          # 用 GitHub API 解析最新版本；若限流或失败，回退到已知稳定版本
           TRIVY_VERSION=$(curl -sS https://api.github.com/repos/aquasecurity/trivy/releases/latest \
-            | grep -oP '"tag_name":\s*"\Kv[^"]+')
+            | grep -oP '"tag_name":\s*"\Kv[^"]+' || true)
+          if [ -z "$TRIVY_VERSION" ]; then
+            echo "::warning::无法解析 Trivy 最新版本，回退到 v0.55.0"
+            TRIVY_VERSION="v0.55.0"
+          fi
         fi
         # 去掉前导 v
         SHORT="${TRIVY_VERSION#v}"
         URL="https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${SHORT}_Linux-64bit.tar.gz"
-        curl -sSL -o /tmp/trivy.tar.gz "${URL}"
+        echo "下载 Trivy: $URL"
+        curl -fSL -o /tmp/trivy.tar.gz "${URL}"
         sudo tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
         rm /tmp/trivy.tar.gz
         trivy --version
