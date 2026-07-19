@@ -8,7 +8,7 @@ name: Smoke Test
 on:
   workflow_dispatch:
   push:
-    branches: [main, "feature/**", "fix/**"]
+    branches: ["**"]
 
 jobs:
   notify-smoke-test:
