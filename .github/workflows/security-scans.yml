@@ -17,6 +17,10 @@ on:
         type: string
         default: high
         description: "none / low / medium / high / critical"
+      sonar-organization:
+        type: string
+        default: ""
+        description: "SonarCloud organization key（必填才能跑 SonarQube，空则跳过）"
       bun-version:
         type: string
         default: latest
@@ -171,18 +175,24 @@ jobs:
       # ============================================================
 
       - name: SonarQube scan
-        if: ${{ env.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarqube-scan-action@v4
+        if: ${{ env.SONAR_TOKEN != '' && inputs.sonar-organization != '' }}
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
+            -Dsonar.organization=${{ inputs.sonar-organization }}
             -Dsonar.projectKey=${{ github.event.repository.name }}
             -Dsonar.sources=.
 
-      - name: Skip SonarQube (no token)
-        if: ${{ env.SONAR_TOKEN == '' }}
-        run: echo "::warning::secret SONAR_TOKEN not set, skipping SonarQube scan"
+      - name: Skip SonarQube (no token or no organization)
+        if: ${{ env.SONAR_TOKEN == '' || inputs.sonar-organization == '' }}
+        run: |
+          if [ -z "${SONAR_TOKEN:-}" ]; then
+            echo "::warning::secret SONAR_TOKEN not set, skipping SonarQube scan"
+          else
+            echo "::warning::sonar-organization input 未配置，跳过 SonarQube 扫描。在 ci.yml 的 with 下加 sonar-organization: '<your-sonarcloud-org>'"
+          fi
 
       - name: Snyk scan
         if: ${{ env.SNYK_TOKEN != '' }}

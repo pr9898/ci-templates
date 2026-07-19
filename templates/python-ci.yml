@@ -24,6 +24,8 @@ jobs:
       run-security-scan: true
       run-dependency-audit: true
       fail-on-severity: "high"
+      # ===== B+ 类：SonarQube（需 SONAR_TOKEN secret + sonar-organization） =====
+      # sonar-organization: "your-sonarcloud-org" # 配置后启用 SonarQube 扫描
       # ===== D 类：上线前卡点（团队成熟后逐步开启） =====
       run-release-gates: false
       jira-prefix: "PROJ"

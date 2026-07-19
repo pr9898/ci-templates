@@ -38,6 +38,10 @@ on:
         type: string
         default: high
         description: "none / low / medium / high / critical"
+      sonar-organization:
+        type: string
+        default: ""
+        description: "SonarCloud organization key（配置后启用 SonarQube 扫描）"
       bun-version:
         type: string
         default: latest
@@ -212,6 +216,7 @@ jobs:
       project-type: ${{ inputs.project-type }}
       run-knip: ${{ inputs.run-knip }}
       fail-on-severity: ${{ inputs.fail-on-severity }}
+      sonar-organization: ${{ inputs.sonar-organization }}
       bun-version: ${{ inputs.bun-version }}
       working-directory: ${{ inputs.working-directory }}
     secrets: inherit

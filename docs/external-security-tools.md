@@ -52,15 +52,24 @@ jobs:
       GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
 ```
 
-不需要在 `with:` 下加开关——`security-scans.yml` 根据 secret 是否存在自动决定执行或跳过。
+不需要在 `with:` 下加开关（除 SonarQube 外）——`security-scans.yml` 根据 secret 是否存在自动决定执行或跳过。
+
+**SonarQube 特殊**：除 `SONAR_TOKEN` 外，还需在 `with:` 下配置 `sonar-organization`（SonarCloud 组织 key），否则跳过：
+
+```yaml
+with:
+  sonar-organization: 'your-sonarcloud-org' # SonarCloud organization key
+secrets: inherit # 含 SONAR_TOKEN
+```
 
 ## SonarQube 配置
 
 ### 获取 token
 
-1. 登录 SonarQube（自建或 SonarCloud）
-2. Account → Security → Generate Tokens
+1. 登录 [SonarCloud](https://sonarcloud.io)（或自建 SonarQube）
+2. 右上角头像 → My Account → Security → Generate Tokens
 3. 复制 token
+4. 获取 `sonar-organization`：SonarCloud 仓库 URL `sonarcloud.io/organizations/<org-key>` 中的 `<org-key>`
 
 ### 可选：项目级配置
 

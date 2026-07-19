@@ -25,6 +25,8 @@ jobs:
       run-extended-lint: false
       run-knip: true
       fail-on-severity: "high"
+      # ===== B+ 类：SonarQube（需 SONAR_TOKEN secret + sonar-organization） =====
+      # sonar-organization: "your-sonarcloud-org" # 配置后启用 SonarQube 扫描
       # ===== D 类：上线前卡点（团队成熟后逐步开启） =====
       run-release-gates: false # 设为 true 启用 OPA test / 敏感数据 / Jira / Schema / commitlint
       jira-prefix: "PROJ" # 改成你的 Jira 项目前缀

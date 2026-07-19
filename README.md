@@ -76,11 +76,11 @@
 
 ### B+ 类：外部安全服务（有 key 才跑）
 
-| 检查项      | 检查什么                         | 需要 key              | 缺失行为       |
-| ----------- | -------------------------------- | --------------------- | -------------- |
-| SonarQube   | 代码质量 + 跨文件漏洞 + 重复代码 | `SONAR_TOKEN`         | 跳过 + warning |
-| Snyk        | 第三方依赖漏洞 + 许可证          | `SNYK_TOKEN`          | 跳过 + warning |
-| GitGuardian | 密钥泄露（SaaS，含历史扫描）     | `GITGUARDIAN_API_KEY` | 跳过 + warning |
+| 检查项      | 检查什么                         | 需要 key                                   | 缺失行为       |
+| ----------- | -------------------------------- | ------------------------------------------ | -------------- |
+| SonarQube   | 代码质量 + 跨文件漏洞 + 重复代码 | `SONAR_TOKEN` + `sonar-organization` input | 跳过 + warning |
+| Snyk        | 第三方依赖漏洞 + 许可证          | `SNYK_TOKEN`                               | 跳过 + warning |
+| GitGuardian | 密钥泄露（SaaS，含历史扫描）     | `GITGUARDIAN_API_KEY`                      | 跳过 + warning |
 
 **启用方式**：无需 input 开关——在 ci.yml 的 `secrets:` 下传递对应 token 即可。配哪个用哪个，未配的自动跳过。
 
