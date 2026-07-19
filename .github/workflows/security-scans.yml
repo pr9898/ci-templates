@@ -111,6 +111,10 @@ jobs:
       - name: Knip (dead code)
         if: inputs.project-type == 'bun' && inputs.run-knip == true
         run: |
+          if [ ! -f package.json ]; then
+            echo "::notice::无 package.json，跳过 knip（模板仓库无业务代码）"
+            exit 0
+          fi
           bun install --frozen-lockfile
           bun knip --no-progress
 

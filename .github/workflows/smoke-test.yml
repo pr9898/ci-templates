@@ -18,6 +18,7 @@ jobs:
       project-type: "bun"
       run-static-analysis: false
       run-security-scan: true
+      run-knip: false
       run-dependency-audit: false
       wecom-notify: true
     secrets:
