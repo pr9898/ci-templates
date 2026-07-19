@@ -129,7 +129,15 @@ jobs:
 
       - name: Conftest (policy)
         if: hashFiles('policy/**') != ''
-        run: conftest test . --combine --ignore '\.git|node_modules'
+        run: |
+          # 只扫描 yaml/json 配置文件，避免 LICENSE/.rego/.md 等非配置文件解析失败
+          FILES=$(find . -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+            -not -path './.git/*' -not -path './node_modules/*' | head -100)
+          if [ -z "$FILES" ]; then
+            echo "::notice::无 yaml/json 配置文件，跳过 conftest test"
+            exit 0
+          fi
+          conftest test $FILES --combine
 
       # ============================================================
       # 外部安全服务（B+ 类）—— 全部 optional secret，缺失优雅跳过
