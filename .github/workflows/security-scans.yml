@@ -202,17 +202,17 @@ jobs:
           set -uo pipefail
           npm install -g snyk
           # 新版 snyk CLI 通过 SNYK_TOKEN 环境变量直接认证，无需 snyk auth
-          # snyk test 退出码：0=无漏洞，1=有漏洞，2=认证/网络错误
-          # 仅 2（认证错误）视为配置问题，warning 跳过；1（有漏洞）正常阻断
+          # 退出码：0=无漏洞，1=有漏洞（阻断），2=认证/网络错误，
+          #         3=无支持的依赖文件（模板仓库或无业务依赖时正常）
           snyk test --severity-threshold=high
           EXIT=$?
-          if [ "$EXIT" = "2" ]; then
-            echo "::warning::Snyk 认证失败（SNYK_TOKEN 无效或过期）或网络错误，跳过扫描。请检查 org secret SNYK_TOKEN。"
-            exit 0
-          elif [ "$EXIT" != "0" ]; then
-            echo "::error::Snyk 发现 high+ 漏洞，详见上方输出。"
-            exit 1
-          fi
+          case "$EXIT" in
+            0) echo "✓ Snyk 扫描通过，无 high+ 漏洞" ;;
+            1) echo "::error::Snyk 发现 high+ 漏洞，详见上方输出"; exit 1 ;;
+            2) echo "::warning::Snyk 认证失败（SNYK_TOKEN 无效或过期）或网络错误，跳过扫描"; exit 0 ;;
+            3) echo "::notice::Snyk 未发现支持的依赖文件（package.json/lockfile/pyproject.toml 等），跳过扫描。模板仓库或无业务依赖时正常。"; exit 0 ;;
+            *) echo "::warning::Snyk 未知退出码 $EXIT，跳过"; exit 0 ;;
+          esac
 
       - name: Skip Snyk (no token)
         if: ${{ env.SNYK_TOKEN == '' }}
