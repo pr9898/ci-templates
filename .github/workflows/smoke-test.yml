@@ -13,6 +13,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# 嵌套调用 security-scans.yml / release-gates.yml 需要 security-events: write
+# 才能让子 workflow 的 upload-sarif 有权限
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   # ============================================================
   # 仓库文件质量自检
