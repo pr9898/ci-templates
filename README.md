@@ -34,16 +34,18 @@
 
 七类检查 + 通知：
 
-| 类别   | 名称             | 默认           | 说明                                                              |
-| ------ | ---------------- | -------------- | ----------------------------------------------------------------- |
-| **A**  | 静态分析与格式化 | ✅ 开          | type-check / lint / format / extended-lint                        |
-| **B**  | 安全扫描（开源） | ✅ 开          | semgrep / gitleaks / trivy / knip / checkov / conftest            |
-| **B+** | 外部安全服务     | ⚠️ 有 key 才跑 | SonarQube / Snyk / GitGuardian                                    |
-| **C**  | 依赖审计         | ✅ 开          | bun audit / pip-audit / lockfile-freshness                        |
-| **D**  | 上线前卡点       | ❌ 关          | OPA test / Semgrep 自定义 / 敏感数据 / Jira / Schema / commitlint |
-| **E**  | 上线后验证       | ❌ 关          | promptfoo AI 内容 / k6 压测 / pgbench DB 基准                     |
-| **F**  | 流程卡点         | 📋 模板        | PR 模板 / release checklist / 本地钩子（复制即用）                |
-| —      | 企业微信通知     | ✅ 开          | CI 开始/结束发 markdown 到群机器人                                |
+| 类别   | 名称             | 默认                    | 说明                                                              |
+| ------ | ---------------- | ----------------------- | ----------------------------------------------------------------- |
+| **A**  | 静态分析与格式化 | ✅ 开                   | type-check / lint / format / extended-lint                        |
+| **B**  | 安全扫描（开源） | ✅ 开                   | semgrep / gitleaks / trivy / knip / checkov / conftest            |
+| **B+** | 外部安全服务     | ⚠️ 有 key 才跑          | SonarQube / Snyk / GitGuardian                                    |
+| **C**  | 依赖审计         | ✅ 开                   | bun audit / pip-audit / lockfile-freshness                        |
+| **D**  | 上线前卡点       | ✅ 开（无文件自动跳过） | OPA test / Semgrep 自定义 / 敏感数据 / Jira / Schema / commitlint |
+| **E**  | 上线后验证       | ✅ 开（无文件自动跳过） | promptfoo AI 内容 / k6 压测 / pgbench DB 基准                     |
+| **F**  | 流程卡点         | 📋 模板                 | PR 模板 / release checklist / 本地钩子（复制即用）                |
+| —      | 企业微信通知     | ✅ 开                   | CI 开始/结束发 markdown 到群机器人                                |
+
+> **设计原则**：所有检查默认开启，工具靠**文件存在性**决定是否执行——无对应文件/不适用时自动跳过并输出 `::notice::` 说明原因。业务仓库接入后零配置即扫描。
 
 ---
 
@@ -62,15 +64,15 @@
 
 ### B 类：安全扫描（开源工具，默认开启）
 
-| 检查项         | 检查什么                                     | 需要 key                   | 缺失行为                     |
-| -------------- | -------------------------------------------- | -------------------------- | ---------------------------- |
-| Semgrep (auto) | 通用 SAST 规则集                             | `SEMGREP_APP_TOKEN`        | 跳过 + warning               |
-| Gitleaks       | Git 历史中的密钥泄露                         | `GITLEAKS_LICENSE`         | 用社区版（私有仓库功能受限） |
-| Trivy fs       | 文件系统漏洞 + 密钥                          | `DOCKERHUB_USERNAME/TOKEN` | 跳过登录，仍跑（可能慢）     |
-| Trivy config   | IaC 配置错误（Terraform / K8s / Dockerfile） | —                          | 始终跑                       |
-| Knip           | JS 死代码检测                                | —                          | 始终跑（仅 bun）             |
-| Checkov        | IaC 策略扫描（tf / Dockerfile / k8s）        | —                          | 有 IaC 文件才跑              |
-| Conftest       | OPA 策略校验 IaC 文件                        | —                          | 有 `policy/` 目录才跑        |
+| 检查项         | 检查什么                                     | 需要 key                   | 缺失行为                       |
+| -------------- | -------------------------------------------- | -------------------------- | ------------------------------ |
+| Semgrep (auto) | 通用 SAST 规则集                             | `SEMGREP_APP_TOKEN`        | 跳过 + warning                 |
+| Gitleaks       | Git 历史中的密钥泄露                         | `GITLEAKS_LICENSE`         | 用社区版（私有仓库功能受限）   |
+| Trivy fs       | 文件系统漏洞 + 密钥                          | `DOCKERHUB_USERNAME/TOKEN` | 跳过登录，仍跑（可能慢）       |
+| Trivy config   | IaC 配置错误（Terraform / K8s / Dockerfile） | —                          | 始终跑                         |
+| Knip           | JS 死代码检测                                | —                          | 无 package.json 跳过（仅 bun） |
+| Checkov        | IaC 策略扫描（tf / Dockerfile / k8s）        | —                          | 无 IaC 文件跳过 + notice       |
+| Conftest       | OPA 策略校验 IaC 文件                        | —                          | 无 `policy/` 目录跳过 + notice |
 
 **启用/关闭**：`run-security-scan: true/false`；Knip 用 `run-knip: false` 单独关。
 
@@ -103,7 +105,9 @@ secrets: inherit # 含 SONAR_TOKEN
 
 **启用/关闭**：`run-dependency-audit: true/false`；OSV 用 `run-osv-scanner: true`（建议 schedule 触发）。
 
-### D 类：上线前卡点（默认关闭）
+> **无 manifest 时**：无 `package.json`（bun）或 `pyproject.toml`/`setup.py`/`requirements.txt`（python）时，dep-audit 与 lockfile-freshness 自动跳过并输出 notice。
+
+### D 类：上线前卡点（默认开启，无文件自动跳过）
 
 | 检查项         | 检查什么                         | 触发条件                  | 需要 key |
 | -------------- | -------------------------------- | ------------------------- | -------- |
@@ -119,17 +123,17 @@ secrets: inherit # 含 SONAR_TOKEN
 
 **与 B 类 Conftest 的分工**：`opa test` 验证 Rego 策略逻辑本身（白盒单元测试），`conftest test` 用 Rego 策略校验 IaC 文件（黑盒集成）。两者都读 `policy/` 目录。
 
-### E 类：上线后验证（默认关闭，依赖 D 类通过）
+### E 类：上线后验证（默认开启，无文件自动跳过，依赖 D 类通过）
 
-| 检查项      | 检查什么                                 | 需要 key                                | 触发建议          |
-| ----------- | ---------------------------------------- | --------------------------------------- | ----------------- |
-| promptfoo   | LLM prompt 注入 / 越狱 / 幻觉 / 敏感输出 | `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` | schedule / 手动   |
-| k6 / Locust | HTTP 压测 P99 延迟 / 错误率              | 否                                      | schedule / 部署后 |
-| pgbench     | PG 入库速度 TPS 基准                     | 否                                      | schedule          |
+| 检查项      | 检查什么                                 | 需要 key                                | 缺失行为             |
+| ----------- | ---------------------------------------- | --------------------------------------- | -------------------- |
+| promptfoo   | LLM prompt 注入 / 越狱 / 幻觉 / 敏感输出 | `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` | 无配置/API key 跳过  |
+| k6 / Locust | HTTP 压测 P99 延迟 / 错误率              | 否                                      | 无脚本跳过 + warning |
+| pgbench     | PG 入库速度 TPS 基准                     | 否                                      | 跑本地容器，~60s     |
 
 **启用/关闭**：`run-ai-content-test: true` / `run-load-test: true` / `run-db-benchmark: true`。
 
-**为什么不默认开**：E 类调用真实 LLM（有 token 成本）或压测目标服务（有副作用），建议用独立 workflow 配 `schedule:` 或 `workflow_dispatch:` 触发，不要每次 PR 都跑。
+**成本提示**：E 类调用真实 LLM（有 token 成本）或压测目标服务。`pgbench` 在本地 docker 容器中跑，无外部副作用，适合每次 push 验证。`promptfoo` 和 `k6` 若无对应配置文件自动跳过，不会产生成本。建议高频 PR 用默认触发，低频全量测试用独立 workflow 配 `schedule:` 或 `workflow_dispatch:`。
 
 ### F 类：流程卡点（模板文件，复制即用）
 
@@ -232,18 +236,20 @@ secrets: inherit # 含 SONAR_TOKEN
 
 #### 1. input 开关（最常用）
 
-在 ci.yml 的 `with:` 下设置 boolean：
+在 ci.yml 的 `with:` 下设置 boolean。所有检查**默认开启**，无对应文件/不适用时自动跳过并输出 `::notice::`：
 
 ```yaml
 with:
-  run-static-analysis: true # A 类
-  run-security-scan: true # B + B+ 类
-  run-dependency-audit: true # C 类
-  run-release-gates: false # D 类（默认关）
-  run-ai-content-test: false # E 类（默认关）
-  run-load-test: false # E 类（默认关）
-  run-db-benchmark: false # E 类（默认关）
+  run-static-analysis: true # A 类（默认开）
+  run-security-scan: true # B + B+ 类（默认开）
+  run-dependency-audit: true # C 类（默认开）
+  run-release-gates: true # D 类（默认开，无文件自动跳过）
+  run-ai-content-test: true # E 类（默认开，无配置自动跳过）
+  run-load-test: true # E 类（默认开，无脚本自动跳过）
+  run-db-benchmark: true # E 类（默认开，跑本地容器）
 ```
+
+如需关闭某类检查（例如 CI 太慢），设为 `false` 即可。
 
 #### 2. 目录存在性（细粒度控制）
 
@@ -279,7 +285,7 @@ secrets:
 
 ### 常见配置组合
 
-#### 最小配置（仅基础检查 + 通知）
+#### 最小配置（全量检查，无文件自动跳过）
 
 ```yaml
 jobs:
@@ -290,20 +296,19 @@ jobs:
     secrets: inherit
 ```
 
-跑 A + B + C 三类共 13 项检查 + 企业微信通知。
+所有 A/B/C/D/E 七类检查默认开启，无对应文件的检查自动跳过并输出 `::notice::`。对纯模板仓库（无 `package.json`/`policy/`/`tests/`）实际只跑 B 类安全扫描 + 企业微信通知。
 
-#### 标准 PR 检查（含 D 类卡点）
+#### 标准 PR 检查（Jira 强制阻断）
 
 ```yaml
 with:
   project-type: 'bun'
-  run-release-gates: true
   jira-prefix: 'PROJ' # 强制 commit 含 PROJ-1234
-  jira-warning-only: false # 失败即阻断
+  jira-warning-only: false # 失败即阻断（默认 warning-only: true）
   schema-check-paths: 'agents/*.json' # 有 Agent 配置时
 ```
 
-业务仓库需准备 `policy/` 和 `.semgrep/` 目录（参考模板仓库示例），否则对应步骤跳过。
+D 类默认已开，只需调整 Jira 严格度。业务仓库需准备 `policy/` 和 `.semgrep/` 目录（参考模板仓库示例），否则对应步骤跳过。
 
 #### 完整安全扫描（B+ 全开）
 
