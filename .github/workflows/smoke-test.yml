@@ -103,5 +103,4 @@ jobs:
       run-knip: false
       run-dependency-audit: false
       wecom-notify: true
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+    secrets: inherit
