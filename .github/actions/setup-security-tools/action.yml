@@ -15,9 +15,21 @@ runs:
   using: composite
   steps:
     - name: Install Trivy
-      uses: aquasecurity/setup-trivy@v0.2.0
-      with:
-        version: ${{ inputs.trivy-version }}
+      shell: bash
+      env:
+        TRIVY_VERSION: ${{ inputs.trivy-version }}
+      run: |
+        set -euo pipefail
+        if [ "$TRIVY_VERSION" = "latest" ]; then
+          TRIVY_VERSION=$(curl -sS https://api.github.com/repos/aquasecurity/trivy/releases/latest | grep -oP '"tag_name":\s*"\Kv[^"]+')
+        fi
+        # 去掉前导 v
+        SHORT="${TRIVY_VERSION#v}"
+        URL="https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${SHORT}_Linux-64bit.tar.gz"
+        curl -sSL -o /tmp/trivy.tar.gz "${URL}"
+        sudo tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
+        rm /tmp/trivy.tar.gz
+        trivy --version
 
     - name: Cache Trivy DB
       uses: actions/cache@v4
