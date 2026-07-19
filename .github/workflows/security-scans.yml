@@ -199,11 +199,10 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          set -uo pipefail
+          # 关闭 errexit：GitHub Actions run 默认 bash -e，snyk 非零退出会
+          # 立即终止脚本，需 set +e 才能捕获退出码做分支处理
+          set +e
           npm install -g snyk
-          # 新版 snyk CLI 通过 SNYK_TOKEN 环境变量直接认证，无需 snyk auth
-          # 退出码：0=无漏洞，1=有漏洞（阻断），2=认证/网络错误，
-          #         3=无支持的依赖文件（模板仓库或无业务依赖时正常）
           snyk test --severity-threshold=high
           EXIT=$?
           case "$EXIT" in
