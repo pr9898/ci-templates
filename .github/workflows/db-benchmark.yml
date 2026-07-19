@@ -47,22 +47,30 @@ jobs:
             -e POSTGRES_DB=bench \
             -p 5432:5432 \
             "postgres:${PG_VERSION}-alpine"
-          # 等待就绪
-          for _ in $(seq 1 30); do
+          # 等待就绪：pg_isready 成功才继续，循环结束仍失败则退出
+          READY=0
+          for _ in $(seq 1 60); do
             if docker exec pgbench-pg pg_isready -U bench >/dev/null 2>&1; then
               echo "PostgreSQL ready"
+              READY=1
               break
             fi
             sleep 1
           done
+          if [ "$READY" != "1" ]; then
+            echo "::error::PostgreSQL 容器 60s 内未就绪"
+            docker logs pgbench-pg || true
+            exit 1
+          fi
 
       - name: Initialize pgbench
         shell: bash
         env:
           SCALE: ${{ inputs.scale-factor }}
         run: |
+          # -h 127.0.0.1 明确 IPv4，避免 IPv6 ::1 先试超时
           docker exec pgbench-pg pgbench \
-            -U bench -h localhost \
+            -U bench -h 127.0.0.1 \
             -i -s "$SCALE" bench
 
       - name: Run pgbench
@@ -73,7 +81,7 @@ jobs:
           DURATION: ${{ inputs.duration }}
         run: |
           docker exec pgbench-pg pgbench \
-            -U bench -h localhost \
+            -U bench -h 127.0.0.1 \
             -c "$CLIENTS" -j "$CLIENTS" -T "$DURATION" bench 2>&1 | tee pgbench-output.txt
           # 提取 tps
           TPS=$(grep -oP 'tps = \K[0-9.]+' pgbench-output.txt | head -1)
