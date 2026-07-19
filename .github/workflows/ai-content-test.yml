@@ -81,7 +81,7 @@ jobs:
 
       - name: Setup Node
         if: steps.exists.outputs.has == '1' && steps.key.outputs.has == '1'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node-version }}
 

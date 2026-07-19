@@ -144,12 +144,13 @@ jobs:
 
       - name: Snyk scan
         if: ${{ env.SNYK_TOKEN != '' }}
-        uses: snyk/actions@v0.4.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high --fail-on=all
-          command: test
+        run: |
+          set -euo pipefail
+          npm install -g snyk
+          snyk auth "$SNYK_TOKEN"
+          snyk test --severity-threshold=high --fail-on=all
 
       - name: Skip Snyk (no token)
         if: ${{ env.SNYK_TOKEN == '' }}
