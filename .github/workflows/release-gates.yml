@@ -32,6 +32,11 @@ on:
         type: string
         default: .
 
+# SARIF 上传（semgrep 自定义规则）需要 security-events: write
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   release-gates:
     name: Release Gates (D)
@@ -92,7 +97,7 @@ jobs:
 
       - name: Upload Semgrep custom SARIF
         if: hashFiles('.semgrep/*.yml') != '' && always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep-custom.sarif
           category: semgrep-custom
