@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# commit-msg hook：校验 commit message 格式（Conventional Commits + Jira ID）
+npx --no-install commitlint --edit "$1"

@@ -1,0 +1,33 @@
+rules:
+  - id: todo-without-jira-id
+    message: "TODO/FIXME 注释未关联 Jira 工单 ID。请补充 [PROJ-XXXX] 前缀。"
+    languages: [generic]
+    severity: WARNING
+    metadata:
+      category: process-compliance
+    pattern-regex: '(TODO|FIXME|HACK|XXX)\b(?!\s*\[[A-Z]+-[0-9]+\])'
+    paths:
+      include:
+        - "*.ts"
+        - "*.tsx"
+        - "*.js"
+        - "*.jsx"
+        - "*.py"
+        - "*.go"
+        - "*.java"
+        - "*.sh"
+  - id: todo-with-jira-id-passes
+    message: "（信息）TODO 已关联工单。"
+    languages: [generic]
+    severity: INFO
+    pattern-regex: '(TODO|FIXME)\s*\[[A-Z]+-[0-9]+\]'
+    paths:
+      include:
+        - "*.ts"
+        - "*.tsx"
+        - "*.js"
+        - "*.jsx"
+        - "*.py"
+        - "*.go"
+        - "*.java"
+        - "*.sh"

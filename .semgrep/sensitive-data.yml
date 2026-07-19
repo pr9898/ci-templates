@@ -1,0 +1,55 @@
+rules:
+  - id: cn-phone-plaintext
+    message: "发现中国大陆手机号明文（1[3-9] + 9 位）。后台手机号须加密存储 / 脱敏传输。"
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      category: sensitive-data
+      compliance: stargate-acl
+    pattern-regex: "1[3-9][0-9]{9}"
+    paths:
+      include:
+        - "*.yaml"
+        - "*.yml"
+        - "*.json"
+        - "*.env"
+        - "*.ini"
+        - "*.conf"
+      exclude:
+        - "**/promptfooconfig.yaml"
+        - "**/tests/**"
+  - id: cn-id-card-plaintext
+    message: "发现身份证号明文（18 位或 15 位）。须脱敏处理。"
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      category: sensitive-data
+    pattern-regex: "[1-9][0-9]{16}[0-9Xx]|[1-9][0-9]{14}"
+    paths:
+      include:
+        - "*.yaml"
+        - "*.yml"
+        - "*.json"
+        - "*.env"
+      exclude:
+        - "**/promptfooconfig.yaml"
+        - "**/tests/**"
+  - id: hardcoded-access-key
+    message: "硬编码 AK/SK 模式（LTAI/AKIA/AccessKey 前缀）。应使用密钥管理服务。"
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      category: sensitive-data
+    pattern-regex: '(LTAI[0-9A-Za-z]{12,}|AKIA[0-9A-Z]{16}|AccessKey[:=]\s*["\x27]?[A-Za-z0-9/+=]{20,})'
+  - id: weak-hash-algorithm
+    message: "弱加密算法（MD5/SHA1/DES）不应用于密码或敏感数据。"
+    languages: [typescript, javascript, python]
+    severity: WARNING
+    metadata:
+      category: sensitive-data
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+      - pattern: DES.new(...)

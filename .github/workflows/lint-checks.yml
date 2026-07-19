@@ -35,50 +35,61 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup Bun
-        if: inputs.project-type == 'bun'
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
         uses: ./.github/actions/setup-bun
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Python
-        if: inputs.project-type == 'python'
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         uses: ./.github/actions/setup-python
         with:
           python-version: ${{ inputs.python-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Install deps (Bun)
-        if: inputs.project-type == 'bun'
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
         run: bun install --frozen-lockfile
 
       - name: Install deps (Python)
-        if: inputs.project-type == 'python'
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         run: uv sync --frozen
 
       - name: Type check (Bun)
-        if: inputs.project-type == 'bun'
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
         run: bunx tsc --noEmit
 
       - name: Type check (Python)
-        if: inputs.project-type == 'python'
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         run: uv run pyright .
 
       - name: Lint (Bun)
-        if: inputs.project-type == 'bun'
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
         run: bun eslint --max-warnings 0 .
 
       - name: Lint (Python)
-        if: inputs.project-type == 'python'
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         run: uv run ruff check .
 
       - name: Format check (Bun)
-        if: inputs.project-type == 'bun'
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
         run: bun prettier --check .
 
       - name: Format check (Python)
-        if: inputs.project-type == 'python'
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         run: uv run ruff format --check .
+
+      - name: Skip static analysis (no manifest)
+        if: (inputs.project-type == 'bun' && hashFiles('package.json') == '') || (inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') == '')
+        run: |
+          if [ "${{ inputs.project-type }}" = "bun" ]; then
+            echo "::notice::未发现 package.json，跳过 bun tsc/eslint/prettier"
+            echo "::notice::模板仓库或非 JS 项目时正常，业务仓库有 package.json 时自动启用"
+          else
+            echo "::notice::未发现 pyproject.toml/setup.py/requirements.txt，跳过 pyright/ruff"
+            echo "::notice::业务仓库有 Python manifest 文件时自动启用"
+          fi
 
   extended-lint:
     name: Extended Lint
@@ -97,11 +108,19 @@ jobs:
         with:
           dockerfile: "**/Dockerfile"
 
+      - name: Skip hadolint (no Dockerfile)
+        if: hashFiles('**/Dockerfile') == ''
+        run: echo "::notice::未发现 Dockerfile，跳过 hadolint"
+
       - name: shellcheck
         if: hashFiles('**/*.sh') != ''
         uses: ludeeus/action-shellcheck@master
         env:
           SHELLCHECK_OPTS: -e SC1091
+
+      - name: Skip shellcheck (no .sh files)
+        if: hashFiles('**/*.sh') == ''
+        run: echo "::notice::未发现 *.sh 脚本，跳过 shellcheck"
 
       - name: Setup Bun (for stylelint)
         if: hashFiles('**/*.css') != '' && inputs.project-type == 'bun'
@@ -116,8 +135,21 @@ jobs:
           bun install --frozen-lockfile
           bunx stylelint "**/*.css"
 
+      - name: Skip stylelint (no CSS or non-bun)
+        if: hashFiles('**/*.css') == '' || inputs.project-type != 'bun'
+        run: |
+          if [ "${{ inputs.project-type }}" != "bun" ]; then
+            echo "::notice::project-type=${{ inputs.project-type }}，stylelint 仅适用 bun 项目，跳过"
+          else
+            echo "::notice::未发现 *.css 文件，跳过 stylelint"
+          fi
+
       - name: sqlfluff
         if: hashFiles('**/*.sql') != ''
         run: |
           pip install sqlfluff
           sqlfluff lint "**/*.sql"
+
+      - name: Skip sqlfluff (no SQL files)
+        if: hashFiles('**/*.sql') == ''
+        run: echo "::notice::未发现 *.sql 文件，跳过 sqlfluff"

@@ -1,0 +1,129 @@
+name: AI Content Test
+
+# E 类：LLM 内容安全测试（promptfoo）
+# 测试 Agent / LLM 应用的 prompt 注入防御、越狱检测、幻觉检测、敏感输出过滤。
+# 被 standard-ci.yml 调用，也可被业务项目直接调用（schedule / workflow_dispatch 触发）。
+
+on:
+  workflow_call:
+    inputs:
+      test-path:
+        type: string
+        default: ./tests/promptfoo
+        description: "promptfoo 测试用例目录（含 promptfooconfig.yaml 或 .yaml 文件）"
+      config-path:
+        type: string
+        default: ""
+        description: "promptfoo 配置文件路径。空则用 test-path/promptfooconfig.yaml"
+      fail-threshold:
+        type: number
+        default: 0.5
+        description: "失败阈值（0-1）。测试通过率低于此值则失败。"
+      node-version:
+        type: string
+        default: "20"
+      working-directory:
+        type: string
+        default: .
+    secrets:
+      OPENAI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+
+jobs:
+  ai-content-test:
+    name: AI Content Safety (promptfoo)
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve config path
+        id: cfg
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.config-path }}" ]; then
+            echo "path=${{ inputs.config-path }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=${{ inputs.test-path }}/promptfooconfig.yaml" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check test directory exists
+        id: exists
+        shell: bash
+        run: |
+          if [ -d "${{ inputs.test-path }}" ] && [ -f "${{ steps.cfg.outputs.path }}" ]; then
+            echo "has=1" >> "$GITHUB_OUTPUT"
+            echo "✓ 发现 promptfoo 配置: ${{ steps.cfg.outputs.path }}"
+          else
+            echo "has=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::未发现 promptfoo 配置（${{ steps.cfg.outputs.path }}）。请参考 templates/promptfooconfig.yaml 创建测试用例。"
+          fi
+
+      - name: Check LLM API key
+        if: steps.exists.outputs.has == '1'
+        id: key
+        shell: bash
+        run: |
+          if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "has=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::OPENAI_API_KEY / ANTHROPIC_API_KEY 均未配置，promptfoo 无法调用 LLM。"
+          else
+            echo "has=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.exists.outputs.has == '1' && steps.key.outputs.has == '1'
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Run promptfoo eval
+        if: steps.exists.outputs.has == '1' && steps.key.outputs.has == '1'
+        env:
+          FAIL_THRESHOLD: ${{ inputs.fail-threshold }}
+          CONFIG_PATH: ${{ steps.cfg.outputs.path }}
+        run: |
+          set -uo pipefail
+          # 输出 JSON 结果用于解析通过率
+          npx --yes promptfoo@latest eval \
+            --config "$CONFIG_PATH" \
+            --output json > result.json 2>&1 || EXIT=$?
+          EXIT=${EXIT:-0}
+
+          # 解析通过率
+          if [ -s result.json ]; then
+            PASSED=$(jq -r '.results.stats.successes // 0' result.json)
+            TOTAL=$(jq -r '.results.stats.total // 0' result.json)
+            if [ "$TOTAL" -gt 0 ]; then
+              RATE=$(awk "BEGIN{printf \"%.2f\", $PASSED/$TOTAL}")
+            else
+              RATE="0.00"
+            fi
+            echo "测试通过率: $PASSED/$TOTAL = $RATE"
+            FAILING=$(awk "BEGIN{exit !($RATE < $FAIL_THRESHOLD)}")
+            if [ "$FAILING" = "1" ]; then
+              echo "::error::通过率 $RATE 低于阈值 $FAIL_THRESHOLD"
+              exit 1
+            fi
+            echo "✓ 通过率 $RATE ≥ 阈值 $FAIL_THRESHOLD"
+          fi
+          exit "${EXIT:-0}"
+
+      - name: Upload promptfoo results
+        if: steps.exists.outputs.has == '1' && steps.key.outputs.has == '1' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promptfoo-results
+          path: |
+            result.json
+            promptfoo_output.html
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# pre-commit hook：对暂存文件跑快速 lint
+# 若已安装 lint-staged，请改为：npx --no-install lint-staged
+
+# 简单示例：阻止提交含 TODO 但无 Jira ID 的代码
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx|js|jsx|py|go|java)$' || true)
+if [ -n "$STAGED" ]; then
+  if git diff --cached -- "$STAGED" | grep -E '^\+.*\b(TODO|FIXME)\b(?!\s*\[[A-Z]+-[0-9]+\])'; then
+    echo "❌ 检测到 TODO/FIXME 未关联 Jira 工单 ID"
+    echo "    请改为：TODO [PROJ-1234] 描述"
+    exit 1
+  fi
+fi

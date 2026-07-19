@@ -16,7 +16,7 @@ on:
 
 jobs:
   ci:
-    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
     with:
       project-type: "python"
       python-version: "3.12"
@@ -24,7 +24,19 @@ jobs:
       run-security-scan: true
       run-dependency-audit: true
       fail-on-severity: "high"
+      # ===== B+ 类：SonarQube（需 SONAR_TOKEN secret + sonar-organization） =====
+      # sonar-organization: "your-sonarcloud-org" # 配置后启用 SonarQube 扫描
+      # ===== D 类：上线前卡点（团队成熟后逐步开启） =====
+      run-release-gates: false
+      jira-prefix: "PROJ"
+      jira-warning-only: true
+      schema-check-paths: "agents/*.json"
+      # ===== E 类：上线后验证（schedule / 手动触发） =====
+      run-ai-content-test: false
+      run-load-test: false
+      run-db-benchmark: false
       wecom-notify: true
-    secrets:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
-      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+    # secrets: inherit 自动透传 org/repo 级所有 secrets（WECOM_BOT_KEY /
+    # SEMGREP_APP_TOKEN / SONAR_TOKEN / SNYK_TOKEN / GITGUARDIAN_API_KEY /
+    # OPENAI_API_KEY / ANTHROPIC_API_KEY 等），未配置的自动跳过
+    secrets: inherit

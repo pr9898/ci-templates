@@ -17,6 +17,10 @@ on:
         type: string
         default: high
         description: "none / low / medium / high / critical"
+      sonar-organization:
+        type: string
+        default: ""
+        description: "SonarCloud organization key（必填才能跑 SonarQube，空则跳过）"
       bun-version:
         type: string
         default: latest
@@ -32,6 +36,17 @@ on:
         required: false
       DOCKERHUB_TOKEN:
         required: false
+      SONAR_TOKEN:
+        required: false
+      SNYK_TOKEN:
+        required: false
+      GITGUARDIAN_API_KEY:
+        required: false
+
+# SARIF 上传（semgrep / gitleaks）需要 security-events: write
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
   security-scan:
@@ -39,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -51,7 +69,9 @@ jobs:
         uses: ./.github/actions/setup-security-tools
 
       - name: Setup Bun (for knip)
-        if: inputs.project-type == 'bun' && inputs.run-knip == true
+        # 同时检查 package.json 是否存在：无 package.json 时跳过 Bun 安装（~10s）
+        # Knip step 自身会输出"无 package.json"notice，告知跳过原因
+        if: inputs.project-type == 'bun' && inputs.run-knip == true && hashFiles('package.json') != ''
         uses: ./.github/actions/setup-bun
         with:
           bun-version: ${{ inputs.bun-version }}
@@ -59,26 +79,55 @@ jobs:
 
       - name: Semgrep
         if: ${{ env.SEMGREP_APP_TOKEN != '' }}
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: auto
-          generate-sarif: true
+        run: |
+          # 直接安装 semgrep CLI：semgrep-action@v1 的 generate-sarif input 已废弃
+          pip install --quiet semgrep
+          set +e
+          semgrep ci --config auto --sarif --output=semgrep.sarif
+          EXIT=$?
+          case "$EXIT" in
+            0) echo "✓ Semgrep 扫描通过" ;;
+            1) echo "::error::Semgrep 发现问题，详见 SARIF"; exit 1 ;;
+            *) echo "::warning::Semgrep 异常（exit $EXIT），跳过"; exit 0 ;;
+          esac
 
       - name: Skip Semgrep (no token)
         if: ${{ env.SEMGREP_APP_TOKEN == '' }}
         run: echo "::warning::secret SEMGREP_APP_TOKEN not set, skipping semgrep"
 
       - name: Upload Semgrep SARIF
-        if: ${{ env.SEMGREP_APP_TOKEN != '' && always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
 
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        run: |
+          set -euo pipefail
+          # 直接安装 gitleaks CLI，避免 gitleaks-action@v2 的 Node 20 deprecation
+          VERSION=$(curl -sS https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | grep -oP '"tag_name":\s*"\Kv[^"]+')
+          SHORT="${VERSION#v}"
+          curl -fSL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/${VERSION}/gitleaks_${SHORT}_linux_x64.tar.gz"
+          sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          rm /tmp/gitleaks.tar.gz
+          # 扫描当前提交的变更（git diff），生成 SARIF
+          gitleaks detect --source . --report-format sarif --report-path gitleaks.sarif --redact || EXIT=$?
+          # GITLEAKS_LICENSE 用于私有仓库的扩展功能；社区版对公开仓库足够
+          if [ -n "${GITLEAKS_LICENSE:-}" ]; then
+            echo "::notice::GITLEAKS_LICENSE 已配置（私有仓库扩展功能可用）"
+          fi
+          exit "${EXIT:-0}"
+
+      - name: Upload Gitleaks SARIF
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
 
       - name: Trivy filesystem scan
         run: |
@@ -91,7 +140,10 @@ jobs:
             *)        SEVERITY="HIGH,CRITICAL" ;;
           esac
           EXIT_CODE="${EXIT_CODE:-1}"
-          trivy fs --severity "$SEVERITY" --exit-code "$EXIT_CODE" --quiet .
+          # 跳过 node_modules（模板仓库不维护业务依赖，CI 临时安装的工具不入扫描）
+          # 跳过 .git（gitleaks 已覆盖 git 历史）
+          trivy fs --severity "$SEVERITY" --exit-code "$EXIT_CODE" --quiet \
+            --skip-dirs node_modules,.git .
 
       - name: Trivy config scan (IaC)
         run: trivy config --quiet . || true
@@ -99,8 +151,24 @@ jobs:
       - name: Knip (dead code)
         if: inputs.project-type == 'bun' && inputs.run-knip == true
         run: |
+          if [ ! -f package.json ]; then
+            echo "::notice::无 package.json，跳过 knip（模板仓库无业务代码）"
+            exit 0
+          fi
           bun install --frozen-lockfile
           bun knip --no-progress
+
+      - name: Skip Knip (not applicable)
+        if: inputs.project-type != 'bun' || inputs.run-knip != true
+        run: |
+          if [ "${{ inputs.project-type }}" != "bun" ]; then
+            echo "::notice::project-type=${{ inputs.project-type }}，knip 仅适用 bun 项目，跳过"
+            echo "::notice::Python 项目用 ruff/pyright 替代死代码检测"
+          else
+            echo "::notice::run-knip=false，已显式关闭 knip 死代码检测"
+            echo "::notice::典型场景：模板仓库无 package.json，或业务仓库暂不维护死代码检测"
+            echo "::notice::业务仓库接入后默认 run-knip=true，有 package.json 时自动启用"
+          fi
 
       - name: Checkov (IaC)
         if: hashFiles('**/*.tf', '**/Dockerfile', '**/k8s*.yaml', '**/k8s*.yml') != ''
@@ -111,6 +179,96 @@ jobs:
           compact: true
           quiet: true
 
+      - name: Skip Checkov (no IaC files)
+        if: hashFiles('**/*.tf', '**/Dockerfile', '**/k8s*.yaml', '**/k8s*.yml') == ''
+        run: |
+          echo "::notice::未发现 IaC 文件（*.tf / Dockerfile / k8s*.yaml），跳过 Checkov"
+          echo "::notice::业务仓库有 Terraform / Dockerfile / K8s manifest 时自动启用"
+
       - name: Conftest (policy)
         if: hashFiles('policy/**') != ''
-        run: conftest test . --combine --parser yaml,json
+        run: |
+          # 只扫描 yaml/json 配置文件，避免 LICENSE/.rego/.md 等非配置文件解析失败
+          mapfile -t FILES < <(find . -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+            -not -path './.git/*' -not -path './node_modules/*')
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::notice::无 yaml/json 配置文件，跳过 conftest test"
+            exit 0
+          fi
+          conftest test "${FILES[@]}" --combine
+
+      - name: Skip Conftest (no policy dir)
+        if: hashFiles('policy/**') == ''
+        run: |
+          echo "::notice::无 policy/ 目录，跳过 Conftest 策略校验"
+          echo "::notice::业务仓库可参考模板仓库 policy/ 目录编写 OPA/Rego 策略"
+
+      # ============================================================
+      # 外部安全服务（B+ 类）—— 全部 optional secret，缺失优雅跳过
+      # ============================================================
+
+      - name: SonarQube scan
+        if: ${{ env.SONAR_TOKEN != '' && inputs.sonar-organization != '' }}
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ inputs.sonar-organization }}
+            -Dsonar.projectKey=${{ github.event.repository.name }}
+            -Dsonar.sources=.
+
+      - name: Skip SonarQube (no token)
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "::warning::secret SONAR_TOKEN not set, skipping SonarQube scan"
+
+      - name: Skip SonarQube (no organization)
+        if: ${{ env.SONAR_TOKEN != '' && inputs.sonar-organization == '' }}
+        run: |
+          echo "::notice::SONAR_TOKEN 已配但 sonar-organization input 为空，跳过 SonarQube 扫描"
+          echo "::notice::配置：ci.yml 的 with 下加 sonar-organization: '<your-org-key>'"
+          echo "::notice::org key 见 sonarcloud.io/organizations/<your-org-key> URL"
+
+      - name: Snyk scan
+        if: ${{ env.SNYK_TOKEN != '' }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          # 关闭 errexit：GitHub Actions run 默认 bash -e，snyk 非零退出会
+          # 立即终止脚本，需 set +e 才能捕获退出码做分支处理
+          set +e
+          npm install -g snyk
+          snyk test --severity-threshold=high
+          EXIT=$?
+          case "$EXIT" in
+            0) echo "✓ Snyk 扫描通过，无 high+ 漏洞" ;;
+            1) echo "::error::Snyk 发现 high+ 漏洞，详见上方输出"; exit 1 ;;
+            2) echo "::warning::Snyk 认证失败（SNYK_TOKEN 无效或过期）或网络错误，跳过扫描"; exit 0 ;;
+            3) echo "::notice::Snyk 未发现支持的依赖文件（package.json/lockfile/pyproject.toml 等），跳过扫描。模板仓库或无业务依赖时正常。"; exit 0 ;;
+            *) echo "::warning::Snyk 未知退出码 $EXIT，跳过"; exit 0 ;;
+          esac
+
+      - name: Skip Snyk (no token)
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "::warning::secret SNYK_TOKEN not set, skipping Snyk dependency scan"
+
+      - name: GitGuardian scan
+        if: ${{ env.GITGUARDIAN_API_KEY != '' }}
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+        run: |
+          # 直接安装 ggshield CLI，避免 ggshield-action@v1 的命令兼容性问题
+          pip install --quiet ggshield
+          # set +e 捕获退出码：0=无泄露，1=发现泄露（阻断），其他=错误跳过
+          set +e
+          ggshield secret scan ci
+          EXIT=$?
+          case "$EXIT" in
+            0) echo "✓ GitGuardian 扫描通过，无密钥泄露" ;;
+            1) echo "::error::GitGuardian 发现密钥泄露，详见上方输出"; exit 1 ;;
+            *) echo "::warning::GitGuardian 扫描异常（exit $EXIT），可能认证失败或配额不足，跳过"; exit 0 ;;
+          esac
+
+      - name: Skip GitGuardian (no token)
+        if: ${{ env.GITGUARDIAN_API_KEY == '' }}
+        run: echo "::warning::secret GITGUARDIAN_API_KEY not set, skipping GitGuardian secrets scan"

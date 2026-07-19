@@ -1,0 +1,122 @@
+name: Load Test
+
+# E 类：自动化压测（k6 / Locust）
+# 用于预发环境部署后的回归压测，验证 P99 延迟、错误率、吞吐量。
+# 默认关闭，建议 schedule 或 workflow_dispatch 触发。
+
+on:
+  workflow_call:
+    inputs:
+      framework:
+        type: string
+        default: k6
+        description: "压测框架: k6 或 locust"
+      test-script:
+        type: string
+        default: ./tests/load/scenario.js
+        description: "压测脚本路径（k6: .js；locust: locustfile.py）"
+      duration:
+        type: string
+        default: 30s
+        description: "压测时长（k6 格式如 30s / 1m；locust 秒数）"
+      vus:
+        type: number
+        default: 10
+        description: "虚拟用户数（k6 vus；locust users）"
+      target-url:
+        type: string
+        default: ""
+        description: "目标 URL（可选，也可在脚本中硬编码）"
+      fail-on-error-rate:
+        type: number
+        default: 0.01
+        description: "错误率阈值（0-1）。超过则失败。"
+      fail-on-p99-ms:
+        type: number
+        default: 2000
+        description: "P99 延迟阈值（毫秒）。超过则失败。"
+      working-directory:
+        type: string
+        default: .
+
+jobs:
+  load-test:
+    name: Load Test (${{ inputs.framework }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check script exists
+        id: exists
+        shell: bash
+        run: |
+          if [ -f "${{ inputs.test-script }}" ]; then
+            echo "has=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "has=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::压测脚本不存在: ${{ inputs.test-script }}。请参考 templates/k6-scenario.js。"
+          fi
+
+      - name: Run k6 load test
+        if: steps.exists.outputs.has == '1' && inputs.framework == 'k6'
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: ${{ inputs.test-script }}
+          flags: |
+            --vus ${{ inputs.vus }} \
+            --duration ${{ inputs.duration }} \
+            --env TARGET_URL=${{ inputs.target-url }} \
+            --env FAIL_ERROR_RATE=${{ inputs.fail-on-error-rate }} \
+            --env FAIL_P99_MS=${{ inputs.fail-on-p99-ms }}
+
+      - name: Run Locust load test
+        if: steps.exists.outputs.has == '1' && inputs.framework == 'locust'
+        shell: bash
+        env:
+          TARGET_URL: ${{ inputs.target-url }}
+          VUS: ${{ inputs.vus }}
+          DURATION: ${{ inputs.duration }}
+          FAIL_ERROR_RATE: ${{ inputs.fail-on-error-rate }}
+        run: |
+          pip install --quiet locust
+          # locust --headless 模式
+          case "$DURATION" in
+            *s) DURATION_SEC="${DURATION%s}" ;;
+            *m) DURATION_SEC=$(( ${DURATION%m} * 60 )) ;;
+            *) DURATION_SEC="$DURATION" ;;
+          esac
+          locust -f "${{ inputs.test-script }}" \
+            --headless \
+            --host "$TARGET_URL" \
+            --users "$VUS" \
+            --spawn-rate "$VUS" \
+            --run-time "${DURATION_SEC}s" \
+            --csv results || EXIT=$?
+          # 解析 CSV 失败率
+          if [ -f results_stats.csv ]; then
+            FAIL_RATE=$(tail -1 results_stats.csv | awk -F, '{print $8}')
+            echo "失败率: $FAIL_RATE, 阈值: $FAIL_ERROR_RATE"
+            if awk "BEGIN{exit !($FAIL_RATE > $FAIL_ERROR_RATE)}"; then
+              echo "::error::失败率 $FAIL_RATE 超过阈值 $FAIL_ERROR_RATE"
+              exit 1
+            fi
+          fi
+          exit "${EXIT:-0}"
+
+      - name: Upload load test results
+        if: steps.exists.outputs.has == '1' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: |
+            results_stats.csv
+            results_stats.csv
+            results_failures.csv
+            results_history.csv
+            *.log
+          if-no-files-found: ignore
+          retention-days: 14

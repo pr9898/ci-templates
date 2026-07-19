@@ -1,0 +1,41 @@
+# pre-commit 框架配置（替代 husky 的另一种选择）
+# 复制到业务仓库根目录 .pre-commit-config.yaml
+# 安装：pip install pre-commit && pre-commit install
+# 文档：https://pre-commit.com/
+
+repos:
+  # 通用：行尾、空白、大文件
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+
+  # Python
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # JS/TS
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.11.1
+    hooks:
+      - id: eslint
+        files: \.(ts|tsx|js|jsx)$
+        types: [file]
+
+  # Semgrep 安全（与 CI 中 .semgrep/ 规则一致）
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.84.0
+    hooks:
+      - id: semgrep
+        args: ["--config", ".semgrep/", "--error"]
+        pass_filenames: false
