@@ -1,0 +1,10 @@
+# gitleaks 忽略清单
+# 格式：每行一个 fingerprint（Commit:File:RuleID:StartLine）
+#
+# 以下两条是 v1.0.0 初始化提交里 docs/wecom-notification.md 的示例 webhook key
+# (abc12345-6789-def0-1234-567890abcdef)。该值是文档占位符，非真实密钥，
+# 但 gitleaks generic-api-key 规则因熵值较高误报。working tree 已改为
+# <YOUR_BOT_KEY> 占位符，但 git 历史仍保留旧值，此处显式忽略。
+
+86445f3f265d631e6a3403b42dfedbb07bb0c0ed:docs/wecom-notification.md:generic-api-key:52
+86445f3f265d631e6a3403b42dfedbb07bb0c0ed:docs/wecom-notification.md:generic-api-key:60

@@ -39,6 +39,11 @@ on:
       GITGUARDIAN_API_KEY:
         required: false
 
+# SARIF 上传（semgrep / gitleaks）需要 security-events: write
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   security-scan:
     name: Security Scan
