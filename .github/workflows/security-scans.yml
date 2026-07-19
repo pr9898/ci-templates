@@ -164,6 +164,8 @@ jobs:
             echo "::notice::Python 项目用 ruff/pyright 替代死代码检测"
           else
             echo "::notice::run-knip=false，已显式关闭 knip 死代码检测"
+            echo "::notice::典型场景：模板仓库无 package.json，或业务仓库暂不维护死代码检测"
+            echo "::notice::业务仓库接入后默认 run-knip=true，有 package.json 时自动启用"
           fi
 
       - name: Checkov (IaC)
