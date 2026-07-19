@@ -108,5 +108,7 @@ jobs:
       run-security-scan: true
       run-knip: false
       run-dependency-audit: false
+      # ci-templates 自身也跑 SonarQube（org secret SONAR_TOKEN 已配）
+      sonar-organization: "yun-hai-org"
       wecom-notify: true
     secrets: inherit
