@@ -1,5 +1,7 @@
 # Organization Ruleset 全局强制接入
 
+> **当前状态：暂不可用**。本组织为 GitHub Free，Organization 级 Ruleset 需升级到 **GitHub Team** 才能强制执行。在此之前，业务仓库统一采用[方案 B（仓库内 ci.yml）](../README.md#接入方式)。本文档作为升级 Team 后的配置参考。
+
 通过 GitHub 组织级 Repository Ruleset，对所有仓库的 PR 强制运行 `standard-ci.yml`，业务仓库**无需放任何 ci.yml**——零代码接入，PR 不通过则 Merge 按钮锁定。
 
 ## 适用场景
@@ -10,12 +12,16 @@
 
 ## 版本限制
 
-| GitHub 版本             | 公开仓库  | 私有仓库    |
-| ----------------------- | --------- | ----------- |
-| Free for Organizations  | ✅ 可强制 | ❌ 不可强制 |
-| Team / Enterprise Cloud | ✅ 可强制 | ✅ 可强制   |
+| GitHub 版本             | Organization Ruleset | Repository Ruleset（逐仓库） |
+| ----------------------- | -------------------- | ---------------------------- |
+| Free for Organizations  | ❌ 不可用            | ✅ 公开仓库可用              |
+| Team / Enterprise Cloud | ✅ 公/私仓库均可     | ✅ 公/私仓库均可             |
 
-> 私有仓库 + Free 组织：只能用[仓库内 ci.yml 方式](../README.md#接入方式)，无法用 Ruleset 全局强制。
+> **Free 组织的过渡方案**：
+>
+> - 短期：继续用方案 B（仓库内 ci.yml），无版本限制
+> - 可选：对单个公开仓库配置 Repository Ruleset（逐仓库，非全局）
+> - 升级 Team 后：配置 Organization Ruleset 全局生效，再逐步删除各仓库 ci.yml
 
 ## 配置步骤
 

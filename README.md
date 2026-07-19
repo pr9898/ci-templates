@@ -345,11 +345,11 @@ jobs:
 
 ## 接入方式
 
-业务仓库有两种接入方式，按团队规模和 GitHub 版本选择：
+业务仓库有两种接入方式。**当前组织为 GitHub Free，默认采用方案 B（ci.yml）**，后续升级 GitHub Team 后可切换方案 A。
 
-### 方式一：仓库内 ci.yml（通用，所有版本可用）
+### 方案 B：仓库内 ci.yml（默认，当前采用）
 
-在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@v1`。适合任何 GitHub 版本，公开/私有仓库均可。
+在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@v1`。适合任何 GitHub 版本，公开/私有仓库均可，无版本限制。
 
 ```yaml
 # 业务项目 .github/workflows/ci.yml
@@ -368,11 +368,26 @@ jobs:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
 ```
 
-### 方式二：Organization Ruleset 全局强制（零代码接入）
+**优点**：零版本门槛、配置可见可调试、开发者可在 with 下自行调整开关。
+**缺点**：每个业务仓库都要放一份 ci.yml，升级时各仓库需自行同步（指向 `@v1` 可自动跟进 minor 补丁）。
 
-通过 GitHub 组织级 **Repository Rulesets**，对所有仓库的 PR 强制运行 `standard-ci.yml`，业务仓库**无需放任何 ci.yml**。PR 不通过则 Merge 按钮锁定。
+### 方案 A：Repository Ruleset 全局强制（升级路径，后续采用）
 
-**配置步骤**（需组织管理员权限）：
+通过 GitHub **Repository Ruleset**，对仓库的 PR 强制运行 `standard-ci.yml`，业务仓库无需放 ci.yml。PR 不通过则 Merge 按钮锁定，开发者无法绕过。
+
+> **当前不可用**：本组织是 GitHub Free，Organization 级 Ruleset 需升级到 **GitHub Team** 才能强制执行。升级前的过渡方案：
+>
+> - **短期**：继续用方案 B（ci.yml）
+> - **升级 Team 后**：配置 Organization Ruleset，一处生效全组织，再逐步删除各仓库的 ci.yml
+
+**版本限制**：
+
+| GitHub 版本             | Organization Ruleset | Repository Ruleset（逐仓库） |
+| ----------------------- | -------------------- | ---------------------------- |
+| Free for Organizations  | ❌ 不可用            | ✅ 可用（公开仓库）          |
+| Team / Enterprise Cloud | ✅ 可用（公/私仓库） | ✅ 可用（公/私仓库）         |
+
+**升级 Team 后的配置步骤**（需组织管理员权限）：
 
 1. Organization → Settings → Rulesets → New branch ruleset
 2. Target repositories：选 `All repositories` 或按标签/语言动态筛选
@@ -384,20 +399,11 @@ jobs:
    - Ref: `v1`
 6. Enforcement status：先 `Evaluate`（评估模式，不阻断）测试，确认无误后切 `Active`
 
-**版本限制**：
-
-| GitHub 版本             | 公开仓库  | 私有仓库    |
-| ----------------------- | --------- | ----------- |
-| Free for Organizations  | ✅ 可强制 | ❌ 不可强制 |
-| Team / Enterprise Cloud | ✅ 可强制 | ✅ 可强制   |
-
-> 私有仓库 + Free 组织：只能用方式一（仓库内 ci.yml）。
-
-详细配置见 [GitHub Rulesets 文档](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)。
+详细说明见 [Organization Ruleset 全局强制接入](docs/ruleset-onboarding.md)。
 
 ## Quick Start
 
-最小可用的业务仓库 ci.yml（方式一）：
+最小可用的业务仓库 ci.yml（方案 B，当前默认）：
 
 ```yaml
 # 业务项目 .github/workflows/ci.yml
