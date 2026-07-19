@@ -12,6 +12,8 @@ rules:
       - pattern-not: import $NAME from "@/..."
       - pattern-not: import $NAME from "./..."
       - pattern-not: import $NAME from "../..."
+      - pattern-not: import $NAME from "k6/..."
+      - pattern-not: import $NAME from "k6"
   - id: ai-hallucinated-import-py
     message: "AI 生成代码疑似幻觉 import：未声明的模块。请确认模块存在且拼写正确。"
     languages: [python]
