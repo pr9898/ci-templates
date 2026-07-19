@@ -83,7 +83,7 @@ jobs:
         run: echo "::warning::secret SEMGREP_APP_TOKEN not set, skipping semgrep"
 
       - name: Upload Semgrep SARIF
-        if: ${{ env.SEMGREP_APP_TOKEN != '' && always() }}
+        if: always() && hashFiles('semgrep.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
@@ -110,7 +110,7 @@ jobs:
           exit "${EXIT:-0}"
 
       - name: Upload Gitleaks SARIF
-        if: always()
+        if: always() && hashFiles('gitleaks.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks.sarif
