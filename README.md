@@ -343,9 +343,61 @@ jobs:
 
 ---
 
+## 接入方式
+
+业务仓库有两种接入方式，按团队规模和 GitHub 版本选择：
+
+### 方式一：仓库内 ci.yml（通用，所有版本可用）
+
+在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@v1`。适合任何 GitHub 版本，公开/私有仓库均可。
+
+```yaml
+# 业务项目 .github/workflows/ci.yml
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  ci:
+    uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
+    with:
+      project-type: 'bun' # 或 'python'
+      wecom-notify: true
+    secrets:
+      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+```
+
+### 方式二：Organization Ruleset 全局强制（零代码接入）
+
+通过 GitHub 组织级 **Repository Rulesets**，对所有仓库的 PR 强制运行 `standard-ci.yml`，业务仓库**无需放任何 ci.yml**。PR 不通过则 Merge 按钮锁定。
+
+**配置步骤**（需组织管理员权限）：
+
+1. Organization → Settings → Rulesets → New branch ruleset
+2. Target repositories：选 `All repositories` 或按标签/语言动态筛选
+3. Target branches：`Include default branch`
+4. 勾选 `Require status checks to pass before merging` → `Require workflows to pass before merging`
+5. Add workflow：
+   - Repository: `pr9898/ci-templates`
+   - Workflow: `.github/workflows/standard-ci.yml`
+   - Ref: `v1`
+6. Enforcement status：先 `Evaluate`（评估模式，不阻断）测试，确认无误后切 `Active`
+
+**版本限制**：
+
+| GitHub 版本             | 公开仓库  | 私有仓库    |
+| ----------------------- | --------- | ----------- |
+| Free for Organizations  | ✅ 可强制 | ❌ 不可强制 |
+| Team / Enterprise Cloud | ✅ 可强制 | ✅ 可强制   |
+
+> 私有仓库 + Free 组织：只能用方式一（仓库内 ci.yml）。
+
+详细配置见 [GitHub Rulesets 文档](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)。
+
 ## Quick Start
 
-最小可用的业务仓库 ci.yml：
+最小可用的业务仓库 ci.yml（方式一）：
 
 ```yaml
 # 业务项目 .github/workflows/ci.yml
@@ -426,6 +478,7 @@ uses: pr9898/ci-templates/.github/workflows/standard-ci.yml@v1
 - [commitlint + husky 本地钩子](docs/commitlint-husky.md)
 - [外部安全服务](docs/external-security-tools.md)
 - [PR 模板与发布 Checklist](docs/pr-checklist.md)
+- [Organization Ruleset 全局强制接入](docs/ruleset-onboarding.md)
 
 ## License
 
