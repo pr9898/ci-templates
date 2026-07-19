@@ -100,7 +100,10 @@ jobs:
             *)        SEVERITY="HIGH,CRITICAL" ;;
           esac
           EXIT_CODE="${EXIT_CODE:-1}"
-          trivy fs --severity "$SEVERITY" --exit-code "$EXIT_CODE" --quiet .
+          # 跳过 node_modules（模板仓库不维护业务依赖，CI 临时安装的工具不入扫描）
+          # 跳过 .git（gitleaks 已覆盖 git 历史）
+          trivy fs --severity "$SEVERITY" --exit-code "$EXIT_CODE" --quiet \
+            --skip-dirs node_modules,.git .
 
       - name: Trivy config scan (IaC)
         run: trivy config --quiet . || true
@@ -122,7 +125,7 @@ jobs:
 
       - name: Conftest (policy)
         if: hashFiles('policy/**') != ''
-        run: conftest test . --combine --parser yaml,json
+        run: conftest test . --combine
 
       # ============================================================
       # 外部安全服务（B+ 类）—— 全部 optional secret，缺失优雅跳过
