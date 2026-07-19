@@ -129,7 +129,7 @@ jobs:
 
       - name: Conftest (policy)
         if: hashFiles('policy/**') != ''
-        run: conftest test . --combine
+        run: conftest test . --combine --ignore .git,node_modules
 
       # ============================================================
       # 外部安全服务（B+ 类）—— 全部 optional secret，缺失优雅跳过
