@@ -69,7 +69,9 @@ jobs:
         uses: ./.github/actions/setup-security-tools
 
       - name: Setup Bun (for knip)
-        if: inputs.project-type == 'bun' && inputs.run-knip == true
+        # 同时检查 package.json 是否存在：无 package.json 时跳过 Bun 安装（~10s）
+        # Knip step 自身会输出"无 package.json"notice，告知跳过原因
+        if: inputs.project-type == 'bun' && inputs.run-knip == true && hashFiles('package.json') != ''
         uses: ./.github/actions/setup-bun
         with:
           bun-version: ${{ inputs.bun-version }}

@@ -106,7 +106,10 @@ jobs:
       project-type: "bun"
       run-static-analysis: false
       run-security-scan: true
-      run-knip: false
+      # run-knip: true 让 Knip step 跑到"无 package.json"分支输出 notice
+      # （比 run-knip: false 的"已显式关闭"提示更准确）
+      # Setup Bun (for knip) 已加 hashFiles('package.json') 检查，无 package.json 时不装 Bun
+      run-knip: true
       run-dependency-audit: false
       # ci-templates 自身也跑 SonarQube（org secret SONAR_TOKEN 已配）
       sonar-organization: "yun-hai-org"
