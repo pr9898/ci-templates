@@ -88,7 +88,7 @@ jobs:
           # 用 semgrep 的目录配置语法，自动加载 .semgrep/ 下所有规则
           semgrep --config .semgrep/ --error --sarif --output semgrep-custom.sarif . || EXIT=$?
           # --error 使 WARNING 以上失败；ERROR 必然阻断
-          exit ${EXIT:-0}
+          exit "${EXIT:-0}"
 
       - name: Upload Semgrep custom SARIF
         if: hashFiles('.semgrep/*.yml') != '' && always()

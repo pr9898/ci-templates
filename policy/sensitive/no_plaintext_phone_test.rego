@@ -1,30 +1,30 @@
 package sensitive
 
 test_no_phone_passes {
-	count(deny) == 0 with input as {
-		"name": "app",
-		"version": "1.0.0",
-		"contact": "support@example.com",
-	}
+    count(deny) == 0 with input as {
+        "name": "app",
+        "version": "1.0.0",
+        "contact": "support@example.com",
+    }
 }
 
 test_phone_detected {
-	count(deny) == 1 with input as {
-		"contact": "13812345678",
-	}
+    count(deny) == 1 with input as {
+        "contact": "13812345678",
+    }
 }
 
 test_phone_in_nested_object_detected {
-	count(deny) == 1 with input as {
-		"user": {
-			"phone": "15900001111",
-		},
-	}
+    count(deny) == 1 with input as {
+        "user": {
+            "phone": "15900001111",
+        },
+    }
 }
 
 test_short_number_not_flagged {
-	count(deny) == 0 with input as {
-		"port": 8080,
-		"zip": "100000",
-	}
+    count(deny) == 0 with input as {
+        "port": 8080,
+        "zip": "100000",
+    }
 }

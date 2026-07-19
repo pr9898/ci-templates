@@ -46,7 +46,7 @@ jobs:
             -e POSTGRES_PASSWORD=bench \
             -e POSTGRES_DB=bench \
             -p 5432:5432 \
-            postgres:${PG_VERSION}-alpine
+            "postgres:${PG_VERSION}-alpine"
           # 等待就绪
           for _ in $(seq 1 30); do
             if docker exec pgbench-pg pg_isready -U bench >/dev/null 2>&1; then

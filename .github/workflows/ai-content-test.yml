@@ -115,7 +115,7 @@ jobs:
             fi
             echo "✓ 通过率 $RATE ≥ 阈值 $FAIL_THRESHOLD"
           fi
-          exit $EXIT
+          exit "${EXIT:-0}"
 
       - name: Upload promptfoo results
         if: steps.exists.outputs.has == '1' && steps.key.outputs.has == '1' && always()
